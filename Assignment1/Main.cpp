@@ -38,6 +38,7 @@ struct TweakableParams {
     float rotSpeed = 90.0f;
 
     bool forceGimbalLock = false;
+    bool useQuaternionMode = false;
 };
 
 // -------------------- Initialize GLFW --------------------
@@ -77,6 +78,8 @@ static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     if (cam) cam->setSize(width, height);
 }
 
+// -------------------- Initialize GLAD --------------------
+
 static void setupOpenGL() {
     // use GLAD to configure OpenGL
     if (!gladLoadGL()) {
@@ -91,6 +94,8 @@ static void setupOpenGL() {
     glCullFace(GL_BACK);
 	glFrontFace(GL_CCW);
 }
+
+// -------------------- Initialize Camera --------------------
 
 static void setupCamera(GLFWwindow* window, Camera& camera) {
     // attach camera pointer to window
@@ -111,6 +116,8 @@ static void setupCamera(GLFWwindow* window, Camera& camera) {
     camera.pitch = glm::degrees(asin(dir.y));
     camera.yaw = glm::degrees(atan2(dir.z, dir.x));
 }
+
+// -------------------- GUI Setup --------------------
 
 static void buildGUI(TweakableParams& params) {
     ImGui::Begin("Rotations Controls");
@@ -134,8 +141,64 @@ static void buildGUI(TweakableParams& params) {
         "When enabled, pitch is locked near 90 degrees. "
         "Yaw and roll will collapse onto the same axis."
     );
+    ImGui::Checkbox("Use Quaternion Mode", &params.useQuaternionMode);
 
     ImGui::End();
+}
+
+// -------------------- Render Model --------------------
+
+static void updateAircraftRotation(GLFWwindow* window, Model& model,
+    TweakableParams& params, float dt, glm::quat& aircraftQuat) {
+    const RotationOrder order = RotationOrder::YXZ;
+
+    // ---------------- Euler mode ----------------
+    if (!params.useQuaternionMode) {
+        float change = params.rotSpeed * dt;
+
+        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) params.pitchDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) params.pitchDeg -= change;
+
+        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) params.yawDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) params.yawDeg -= change;
+
+        if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) params.rollDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) params.rollDeg -= change;
+
+        // Gimbal lock demo
+        if (params.forceGimbalLock) params.pitchDeg = 89.9f;
+        // Clamp pitch to avoid singularity in Euler angles
+        params.pitchDeg = glm::clamp(params.pitchDeg, -89.9f, 89.9f);
+
+        model.setRotationEuler(
+            params.pitchDeg,
+            params.yawDeg,
+            params.rollDeg,
+            order
+        );
+    }
+    // ---------------- Quaternion mode ----------------
+    else {
+        float angle = glm::radians(params.rotSpeed * dt);
+
+        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis( angle, glm::vec3(1,0,0)) * aircraftQuat;
+        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis(-angle, glm::vec3(1,0,0)) * aircraftQuat;
+
+        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis( angle, glm::vec3(0,1,0)) * aircraftQuat;
+        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis(-angle, glm::vec3(0,1,0)) * aircraftQuat;
+
+        if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis( angle, glm::vec3(0,0,1)) * aircraftQuat;
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+            aircraftQuat = glm::angleAxis(-angle, glm::vec3(0,0,1)) * aircraftQuat;
+
+        aircraftQuat = glm::normalize(aircraftQuat);
+        model.setRotationQuat(aircraftQuat);
+    }
 }
 
 static void renderModel(Model& model, Shader& shader, Camera& camera,
@@ -150,21 +213,6 @@ static void renderModel(Model& model, Shader& shader, Camera& camera,
     shader.setFloat("ambient", params.ambient);
     shader.setFloat("specularStr", params.specularStr);
     shader.setFloat("shininess", params.shininess);
-
-    // Handle Euler angles and gimbal lock demo
-    if (params.forceGimbalLock) {
-        params.pitchDeg = 89.9f;
-    }
-    // clamp pitch to avoid singularity in gimbal lock demo
-    params.pitchDeg = glm::clamp(params.pitchDeg, -89.9f, 89.9f);
-
-    RotationOrder order = RotationOrder::YXZ;
-    model.setRotationEuler(
-        params.pitchDeg,
-        params.yawDeg,
-        params.rollDeg,
-        order
-    );
 
     model.Draw(shader);
 }
@@ -227,7 +275,8 @@ int main() {
     TweakableParams params;
     float prevTime = (float)glfwGetTime();
 	bool pWasDown = true;
-    glm::vec3 target(0.0f, 0.0f, 0.0f);
+    glm::vec3 target(0.0f, 0.0f, 0.0f);    
+    glm::quat aircraftQuat = glm::quat(1, 0, 0, 0);
 	std::cout << "Entering render loop..." << std::endl;
     // this loop will run until we close window
     while (!glfwWindowShouldClose(window)) {
@@ -256,20 +305,8 @@ int main() {
         camera.UpdateWithMode(window, dt);
         camera.updateMatrix(0.5f, 100.0f);
         
-        
-        // Euler rotation input
-        float change = params.rotSpeed * dt;
-
-        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) params.pitchDeg += change;
-        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) params.pitchDeg -= change;
-
-        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) params.yawDeg += change;
-        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) params.yawDeg -= change;
-
-        if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) params.rollDeg += change;
-        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) params.rollDeg -= change;
-
-        // Render model
+        // Render the model with current parameters
+        updateAircraftRotation(window, plane, params, dt, aircraftQuat);
         renderModel(plane, sceneShader, camera, params);
 
         // Render ImGui

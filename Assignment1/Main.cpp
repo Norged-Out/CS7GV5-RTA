@@ -39,6 +39,13 @@ struct TweakableParams {
 
     bool forceGimbalLock = false;
     bool useQuaternionMode = false;
+    bool useKeyframes = false;
+};
+
+struct Keyframe {
+    glm::vec3 position;
+    glm::quat rotation;
+    float time; // seconds
 };
 
 // -------------------- Initialize GLFW --------------------
@@ -143,10 +150,29 @@ static void buildGUI(TweakableParams& params) {
     );
     ImGui::Checkbox("Use Quaternion Mode", &params.useQuaternionMode);
 
+    ImGui::Separator();
+    ImGui::Checkbox("Use Keyframed Animation", &params.useKeyframes);
+
     ImGui::End();
 }
 
 // -------------------- Render Model --------------------
+
+static void renderModel(Model& model, Shader& shader, Camera& camera,
+    TweakableParams& params) {
+    shader.Activate();
+    camera.Matrix(shader, "camMatrix");
+
+    // Controllable uniforms
+    shader.setVec3("camPos", camera.Position);
+    shader.setVec4("lightColor", params.color * params.intensity);
+    shader.setVec3("lightPos", params.position);
+    shader.setFloat("ambient", params.ambient);
+    shader.setFloat("specularStr", params.specularStr);
+    shader.setFloat("shininess", params.shininess);
+
+    model.Draw(shader);
+}
 
 static void updateAircraftRotation(GLFWwindow* window, Model& model,
     TweakableParams& params, float dt, glm::quat& aircraftQuat) {
@@ -201,20 +227,43 @@ static void updateAircraftRotation(GLFWwindow* window, Model& model,
     }
 }
 
-static void renderModel(Model& model, Shader& shader, Camera& camera,
-    TweakableParams& params) {
-    shader.Activate();
-    camera.Matrix(shader, "camMatrix");
+static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
+    const std::vector<Keyframe>& keys) {
+    // Need at least two keyframes to interpolate
+    if (keys.size() < 2) return;
 
-    // Controllable uniforms
-    shader.setVec3("camPos", camera.Position);
-    shader.setVec4("lightColor", params.color * params.intensity);
-    shader.setVec3("lightPos", params.position);
-    shader.setFloat("ambient", params.ambient);
-    shader.setFloat("specularStr", params.specularStr);
-    shader.setFloat("shininess", params.shininess);
+    // Advance animation time
+    animTime += dt;
 
-    model.Draw(shader);
+    // Total animation duration = time of last keyframe
+    float duration = keys.back().time;
+
+    // Loop animation back to start when it finishes
+    animTime = fmod(animTime, duration);
+
+    // Find the current keyframe interval [a, b]
+    int i = 0;
+    while (i < (int)keys.size() - 1 && animTime > keys[i + 1].time) ++i;
+
+    // Keyframes we are interpolating between
+    const Keyframe& a = keys[i];
+    const Keyframe& b = keys[i + 1];
+
+    // Normalized time between keyframes [0, 1]
+    float t = (animTime - a.time) / (b.time - a.time);
+
+    // Apply easing to avoid robotic motion
+    t = MathUtils::easeInOut(t);
+
+    // Interpolate position linearly
+    glm::vec3 pos = glm::mix(a.position, b.position, t);
+
+    // Interpolate rotation using SLERP
+    glm::quat rot = MathUtils::slerp(a.rotation, b.rotation, t);
+
+    // Apply interpolated transform to model
+    model.setPosition(pos);
+    model.setRotationQuat(rot);
 }
 
 // -------------------- Main --------------------
@@ -271,11 +320,19 @@ int main() {
 	plane.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     plane.setScale(glm::vec3(0.01f));
 
+    std::vector<Keyframe> keyframes = {
+        { glm::vec3( 0,  0,  0), glm::quat(1,0,0,0), 0.0f },
+        { glm::vec3( 2,  1, -2), glm::angleAxis(glm::radians(30.f), glm::vec3(0,1,0)), 2.0f },
+        { glm::vec3(-2,  1, -4), glm::angleAxis(glm::radians(60.f), glm::vec3(0,1,0)), 4.0f },
+        { glm::vec3( 0,  0, -6), glm::angleAxis(glm::radians(90.f), glm::vec3(0,1,0)), 6.0f }
+    };
+
     // ------------ Render Loop ------------
     TweakableParams params;
     float prevTime = (float)glfwGetTime();
 	bool pWasDown = true;
-    glm::vec3 target(0.0f, 0.0f, 0.0f);    
+    glm::vec3 target(0.0f, 0.0f, 0.0f);
+    float animTime = 0.0f;
     glm::quat aircraftQuat = glm::quat(1, 0, 0, 0);
 	std::cout << "Entering render loop..." << std::endl;
     // this loop will run until we close window
@@ -306,7 +363,11 @@ int main() {
         camera.updateMatrix(0.5f, 100.0f);
         
         // Render the model with current parameters
-        updateAircraftRotation(window, plane, params, dt, aircraftQuat);
+        if (params.useKeyframes) {
+            updateAircraftFromKeyframes(plane, animTime, dt, keyframes);
+        } else {
+            updateAircraftRotation(window, plane, params, dt, aircraftQuat);
+        }
         renderModel(plane, sceneShader, camera, params);
 
         // Render ImGui

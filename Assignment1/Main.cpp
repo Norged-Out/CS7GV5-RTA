@@ -8,6 +8,7 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <engine/Camera.h>
+#include <engine/MathUtils.h>
 #include <engine/Model.h>
 #include <engine/Shader.h>
 
@@ -22,13 +23,21 @@ const unsigned int width = 1200;
 const unsigned int height = 800;
 
 struct TweakableParams {
-    // TO-DO
+    // Light parameters
     float intensity = 1.0f;
     glm::vec3 position = glm::vec3(0.0f, 3.0f, 2.0f);
     glm::vec4 color = glm::vec4(1.0f, 0.97f, 0.92f, 1.0f);
     float ambient = 0.25f;
     float specularStr = 0.5f;
     float shininess = 32.0f;
+
+    // Aircraft Euler state (degrees)
+    float pitchDeg = 0.0f; // X
+    float yawDeg   = 0.0f; // Y
+    float rollDeg  = 0.0f; // Z
+    float rotSpeed = 90.0f;
+
+    bool forceGimbalLock = false;
 };
 
 // -------------------- Initialize GLFW --------------------
@@ -96,7 +105,7 @@ static void setupCamera(GLFWwindow* window, Camera& camera) {
         });
     // Point camera at scene center
     glm::vec3 target(0.0f, 0.0f, 0.0f);
-    camera.Position = glm::vec3(0.0f, 0.0f, 10.0f);
+    camera.Position = glm::vec3(0.0f, 0.0f, 5.0f);
     glm::vec3 dir = glm::normalize(target - camera.Position);
     camera.Orientation = dir;
     camera.pitch = glm::degrees(asin(dir.y));
@@ -104,20 +113,33 @@ static void setupCamera(GLFWwindow* window, Camera& camera) {
 }
 
 static void buildGUI(TweakableParams& params) {
-    ImGui::Begin("Transmission Controls");
+    ImGui::Begin("Rotations Controls");
     ImGui::SliderFloat("Light Intensity", &params.intensity, 0.5f, 5.0f);
     ImGui::SliderFloat("Ambient", &params.ambient, 0.0f, 1.0f);
     ImGui::ColorEdit3("Light Color", &params.color.r);
     ImGui::DragFloat3("Light Position", &params.position.x, 0.1f);
     ImGui::SliderFloat("Specular Strength", &params.specularStr, 0.0f, 2.0f);
     ImGui::SliderFloat("Shininess", &params.shininess, 1.0f, 128.0f);
+    
     ImGui::Separator();
+    ImGui::Text("Aircraft Rotation (Euler)");
+    ImGui::DragFloat("Pitch", &params.pitchDeg, 0.1f, -90.0f, 90.0f);
+    ImGui::DragFloat("Yaw",   &params.yawDeg,   0.1f);
+    ImGui::DragFloat("Roll",  &params.rollDeg,  0.1f);
+    ImGui::SliderFloat("Rot Speed", &params.rotSpeed, 10.0f, 360.0f);
+
+    ImGui::Separator();
+    ImGui::Checkbox("Force Gimbal Lock (Pitch = 89.9°)", &params.forceGimbalLock);
+    ImGui::TextWrapped(
+        "When enabled, pitch is locked near 90 degrees. "
+        "Yaw and roll will collapse onto the same axis."
+    );
 
     ImGui::End();
 }
 
 static void renderModel(Model& model, Shader& shader, Camera& camera,
-    const TweakableParams& params, float angle) {
+    TweakableParams& params) {
     shader.Activate();
     camera.Matrix(shader, "camMatrix");
 
@@ -129,7 +151,21 @@ static void renderModel(Model& model, Shader& shader, Camera& camera,
     shader.setFloat("specularStr", params.specularStr);
     shader.setFloat("shininess", params.shininess);
 
-    //model.setRotation(angle, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Handle Euler angles and gimbal lock demo
+    if (params.forceGimbalLock) {
+        params.pitchDeg = 89.9f;
+    }
+    // clamp pitch to avoid singularity in gimbal lock demo
+    params.pitchDeg = glm::clamp(params.pitchDeg, -89.9f, 89.9f);
+
+    RotationOrder order = RotationOrder::YXZ;
+    model.setRotationEuler(
+        params.pitchDeg,
+        params.yawDeg,
+        params.rollDeg,
+        order
+    );
+
     model.Draw(shader);
 }
 
@@ -180,20 +216,17 @@ int main() {
 
 	// attempt to load model
     float t0 = (float)glfwGetTime();
-    Model model1("Models/penguin-bot.glb");
+    Model plane("Models/plane.obj");
     float t1 = (float)glfwGetTime();
     std::cout << "[Load] Model took " << (t1 - t0) << "s\n";
 
-	
-	model1.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
-    model1.setScale(glm::vec3(0.01f));
+	plane.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
+    plane.setScale(glm::vec3(0.01f));
 
     // ------------ Render Loop ------------
     TweakableParams params;
     float prevTime = (float)glfwGetTime();
 	bool pWasDown = true;
-    float rotationSpeed = 20.0f;
-	float angle = 0.0f;
     glm::vec3 target(0.0f, 0.0f, 0.0f);
 	std::cout << "Entering render loop..." << std::endl;
     // this loop will run until we close window
@@ -201,7 +234,6 @@ int main() {
         float now = (float)glfwGetTime();
         float dt = now - prevTime;
         prevTime = now;
-        angle = now * rotationSpeed;
 
         // Start ImGui frame
         ImGui_ImplOpenGL3_NewFrame();
@@ -224,8 +256,21 @@ int main() {
         camera.UpdateWithMode(window, dt);
         camera.updateMatrix(0.5f, 100.0f);
         
-        // Render scene
-        renderModel(model1, sceneShader, camera, params, angle);
+        
+        // Euler rotation input
+        float change = params.rotSpeed * dt;
+
+        if (glfwGetKey(window, GLFW_KEY_I) == GLFW_PRESS) params.pitchDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_K) == GLFW_PRESS) params.pitchDeg -= change;
+
+        if (glfwGetKey(window, GLFW_KEY_J) == GLFW_PRESS) params.yawDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS) params.yawDeg -= change;
+
+        if (glfwGetKey(window, GLFW_KEY_U) == GLFW_PRESS) params.rollDeg += change;
+        if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS) params.rollDeg -= change;
+
+        // Render model
+        renderModel(plane, sceneShader, camera, params);
 
         // Render ImGui
         ImGui::Render();

@@ -231,39 +231,47 @@ static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
     const std::vector<Keyframe>& keys) {
     // Need at least two keyframes to interpolate
     if (keys.size() < 2) return;
+    // Store previous state for velocity calculation
+    static glm::vec3 prevPos = keys[0].position;
+    static glm::quat prevRot = keys[0].rotation;
 
-    // Advance animation time
+    // Advance animation time and loop back to start when we reach the end
     animTime += dt;
-
-    // Total animation duration = time of last keyframe
     float duration = keys.back().time;
-
-    // Loop animation back to start when it finishes
     animTime = fmod(animTime, duration);
 
     // Find the current keyframe interval [a, b]
     int i = 0;
     while (i < (int)keys.size() - 1 && animTime > keys[i + 1].time) ++i;
-
-    // Keyframes we are interpolating between
     const Keyframe& a = keys[i];
     const Keyframe& b = keys[i + 1];
-
+    
     // Normalized time between keyframes [0, 1]
     float t = (animTime - a.time) / (b.time - a.time);
+    t = MathUtils::easeInOut(t); // Apply easing for smoother interpolation
 
-    // Apply easing to avoid robotic motion
-    t = MathUtils::easeInOut(t);
-
-    // Interpolate position linearly
+    // Interpolate position with LERP
     glm::vec3 pos = glm::mix(a.position, b.position, t);
 
-    // Interpolate rotation using SLERP
-    glm::quat rot = MathUtils::slerp(a.rotation, b.rotation, t);
+    // velocity for look rotation
+    glm::vec3 velocity = pos - prevPos;
+    glm::quat targetRot = prevRot;
+    if (glm::length(velocity) > 0.001f) {
+        glm::vec3 forward = glm::normalize(velocity);
+        glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+        // Stable look rotation
+        glm::mat4 look = glm::lookAt(glm::vec3(0.0f), forward, up);
+        targetRot = glm::quat_cast(glm::inverse(look));
+    }
+
+    // Interpolate rotation with SLERP
+    glm::quat rot = MathUtils::slerp(prevRot, targetRot, 0.15);
 
     // Apply interpolated transform to model
     model.setPosition(pos);
     model.setRotationQuat(rot);
+    prevPos = pos;
+    prevRot = rot;
 }
 
 // -------------------- Main --------------------
@@ -320,11 +328,24 @@ int main() {
 	plane.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     plane.setScale(glm::vec3(0.01f));
 
+    // Figure of Eight keyframes
     std::vector<Keyframe> keyframes = {
-        { glm::vec3( 0,  0,  0), glm::quat(1,0,0,0), 0.0f },
-        { glm::vec3( 2,  1, -2), glm::angleAxis(glm::radians(30.f), glm::vec3(0,1,0)), 2.0f },
-        { glm::vec3(-2,  1, -4), glm::angleAxis(glm::radians(60.f), glm::vec3(0,1,0)), 4.0f },
-        { glm::vec3( 0,  0, -6), glm::angleAxis(glm::radians(90.f), glm::vec3(0,1,0)), 6.0f }
+        // Center start
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(1,0,0,0), 0.0f },
+
+        // Left loop
+        { glm::vec3(-3.0f,  1.0f, -2.0f), glm::angleAxis(glm::radians(-45.f), glm::vec3(0,1,0)), 1.5f },
+        { glm::vec3(-3.0f,  0.0f, -4.0f), glm::angleAxis(glm::radians(-90.f), glm::vec3(0,1,0)), 3.0f },
+
+        // Back through center
+        { glm::vec3( 0.0f,  0.0f, -6.0f), glm::angleAxis(glm::radians(180.f), glm::vec3(0,1,0)), 4.5f },
+
+        // Right loop
+        { glm::vec3( 3.0f,  1.0f, -4.0f), glm::angleAxis(glm::radians(90.f), glm::vec3(0,1,0)), 6.0f },
+        { glm::vec3( 3.0f,  0.0f, -2.0f), glm::angleAxis(glm::radians(45.f), glm::vec3(0,1,0)), 7.5f },
+
+        // Return to center
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(1,0,0,0), 9.0f }
     };
 
     // ------------ Render Loop ------------

@@ -25,11 +25,9 @@ const unsigned int height = 800;
 struct TweakableParams {
     // Light parameters
     float intensity = 1.0f;
-    glm::vec3 position = glm::vec3(0.0f, 3.0f, 2.0f);
+    glm::vec3 direction = glm::normalize(glm::vec3(-0.3f, -1.0f, -0.2f));
     glm::vec4 color = glm::vec4(1.0f, 0.97f, 0.92f, 1.0f);
     float ambient = 0.25f;
-    float specularStr = 0.5f;
-    float shininess = 32.0f;
 
     // Aircraft Euler state (degrees)
     float pitchDeg = 0.0f; // X
@@ -131,9 +129,7 @@ static void buildGUI(TweakableParams& params) {
     ImGui::SliderFloat("Light Intensity", &params.intensity, 0.5f, 5.0f);
     ImGui::SliderFloat("Ambient", &params.ambient, 0.0f, 1.0f);
     ImGui::ColorEdit3("Light Color", &params.color.r);
-    ImGui::DragFloat3("Light Position", &params.position.x, 0.1f);
-    ImGui::SliderFloat("Specular Strength", &params.specularStr, 0.0f, 2.0f);
-    ImGui::SliderFloat("Shininess", &params.shininess, 1.0f, 128.0f);
+    ImGui::DragFloat3("Light Direction", &params.direction.x, 0.1f);
     
     ImGui::Separator();
     ImGui::Text("Aircraft Rotation (Euler)");
@@ -166,10 +162,8 @@ static void renderModel(Model& model, Shader& shader, Camera& camera,
     // Controllable uniforms
     shader.setVec3("camPos", camera.Position);
     shader.setVec4("lightColor", params.color * params.intensity);
-    shader.setVec3("lightPos", params.position);
+    shader.setVec3("lightDir", params.direction);
     shader.setFloat("ambient", params.ambient);
-    shader.setFloat("specularStr", params.specularStr);
-    shader.setFloat("shininess", params.shininess);
 
     model.Draw(shader);
 }
@@ -239,19 +233,24 @@ static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
     animTime += dt;
     float duration = keys.back().time;
     animTime = fmod(animTime, duration);
-
+    
     // Find the current keyframe interval [a, b]
     int i = 0;
-    while (i < (int)keys.size() - 1 && animTime > keys[i + 1].time) ++i;
-    const Keyframe& a = keys[i];
-    const Keyframe& b = keys[i + 1];
+    while (i + 2 < (int)keys.size() - 1 && animTime > keys[i + 1].time) ++i;
+    i = glm::clamp(i, 1, (int)keys.size() - 3); // Ensure we have k0 and k3 for Catmull-Rom
+
+    const Keyframe& k0 = keys[i - 1];
+    const Keyframe& k1 = keys[i];
+    const Keyframe& k2 = keys[i + 1];
+    const Keyframe& k3 = keys[i + 2];
     
     // Normalized time between keyframes [0, 1]
-    float t = (animTime - a.time) / (b.time - a.time);
-    t = MathUtils::easeInOut(t); // Apply easing for smoother interpolation
+    float t = (animTime - k1.time) / (k2.time - k1.time);
+    // Easing for smoother motion
+    if (animTime < duration - 0.2f) t = MathUtils::easeInOut(t);
 
-    // Interpolate position with LERP
-    glm::vec3 pos = glm::mix(a.position, b.position, t);
+    // Interpolate position with Catmull-Rom spline
+    glm::vec3 pos = MathUtils::catmullRom(k0.position, k1.position, k2.position, k3.position, t);
 
     // velocity for look rotation
     glm::vec3 velocity = pos - prevPos;
@@ -260,12 +259,12 @@ static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
         glm::vec3 forward = glm::normalize(velocity);
         glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
         // Stable look rotation
-        glm::mat4 look = glm::lookAt(glm::vec3(0.0f), forward, up);
+        glm::mat4 look = glm::lookAt(glm::vec3(0.0f), -forward, up);
         targetRot = glm::quat_cast(glm::inverse(look));
     }
 
     // Interpolate rotation with SLERP
-    glm::quat rot = MathUtils::slerp(prevRot, targetRot, 0.15);
+    glm::quat rot = MathUtils::slerp(prevRot, targetRot, 0.15f);
 
     // Apply interpolated transform to model
     model.setPosition(pos);
@@ -312,7 +311,7 @@ int main() {
 
     Shader sceneShader("Shaders/scene.vert", "Shaders/scene.frag");
     sceneShader.Activate();
-    sceneShader.setBool("useTexture", false);
+    sceneShader.setBool("useTexture", true);
     sceneShader.setInt("diffuse0", 0);
     sceneShader.setInt("specular0", 1);
 
@@ -328,24 +327,30 @@ int main() {
 	plane.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     plane.setScale(glm::vec3(0.01f));
 
-    // Figure of Eight keyframes
-    std::vector<Keyframe> keyframes = {
-        // Center start
-        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(1,0,0,0), 0.0f },
+    // Figure-of-eight Catmull–Rom keyframes (loop-safe)
+std::vector<Keyframe> keyframes = {
+        // Control point BEFORE start
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), -3.0f },
+
+        // Actual animation starts here
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 0.0f },
 
         // Left loop
-        { glm::vec3(-3.0f,  1.0f, -2.0f), glm::angleAxis(glm::radians(-45.f), glm::vec3(0,1,0)), 1.5f },
-        { glm::vec3(-3.0f,  0.0f, -4.0f), glm::angleAxis(glm::radians(-90.f), glm::vec3(0,1,0)), 3.0f },
+        { glm::vec3(-10.0f,  4.0f, -6.0f), glm::quat(), 2.0f },
+        { glm::vec3(-10.0f,  0.0f, -14.0f), glm::quat(), 4.0f },
 
         // Back through center
-        { glm::vec3( 0.0f,  0.0f, -6.0f), glm::angleAxis(glm::radians(180.f), glm::vec3(0,1,0)), 4.5f },
+        { glm::vec3( 0.0f,  0.0f, -20.0f), glm::quat(), 6.0f },
 
         // Right loop
-        { glm::vec3( 3.0f,  1.0f, -4.0f), glm::angleAxis(glm::radians(90.f), glm::vec3(0,1,0)), 6.0f },
-        { glm::vec3( 3.0f,  0.0f, -2.0f), glm::angleAxis(glm::radians(45.f), glm::vec3(0,1,0)), 7.5f },
+        { glm::vec3( 10.0f,  4.0f, -14.0f), glm::quat(), 8.0f },
+        { glm::vec3( 10.0f,  0.0f, -6.0f), glm::quat(), 10.0f },
 
-        // Return to center
-        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(1,0,0,0), 9.0f }
+        // End at center
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 12.0f },
+
+        // Control point AFTER end
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 14.0f }
     };
 
     // ------------ Render Loop ------------

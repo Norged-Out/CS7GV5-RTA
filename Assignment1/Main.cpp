@@ -1,7 +1,7 @@
 /*
 * Author: Priyansh Nayak
 * Project: Test
-* Course: CS7GV3: Real-Time Rendering
+* Course: CS7GV5: Real-Time Animation
 */
 
 #include <iostream>
@@ -11,6 +11,12 @@
 #include <engine/MathUtils.h>
 #include <engine/Model.h>
 #include <engine/Shader.h>
+
+// skybox
+#include <engine/HDRTexture.h>
+#include <engine/Cubemap.h>
+#include <engine/HDRConverter.h>
+#include <engine/Skybox.h>
 
 // imgui
 #include <imgui.h>
@@ -306,6 +312,13 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330");
 
+    // Load HDR texture for skybox
+    HDRTexture hdri("Environment/skybox.hdr");
+    Cubemap environment(512);
+	HDRConverter converter(512);
+	converter.convert(hdri, environment);
+	Skybox skybox(environment);
+
 	// ------------ Load Shaders ------------
     std::cout << "Loading shaders..." << std::endl;
 
@@ -314,6 +327,8 @@ int main() {
     sceneShader.setBool("useTexture", true);
     sceneShader.setInt("diffuse0", 0);
     sceneShader.setInt("specular0", 1);
+
+    Shader skyboxShader("Shaders/skybox.vert", "Shaders/skybox.frag");
 
     // ------------ Load Models ------------
     std::cout << "Loading models..." << std::endl;
@@ -327,30 +342,30 @@ int main() {
 	plane.setPosition(glm::vec3(0.0f, 0.0f, 0.0f));
     plane.setScale(glm::vec3(0.01f));
 
-    // Figure-of-eight Catmull–Rom keyframes (loop-safe)
-std::vector<Keyframe> keyframes = {
+    // Figure-of-eight Catmull–Rom keyframes
+    std::vector<Keyframe> keyframes = {
         // Control point BEFORE start
-        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), -3.0f },
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), -2.0f },
 
         // Actual animation starts here
         { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 0.0f },
 
         // Left loop
-        { glm::vec3(-10.0f,  4.0f, -6.0f), glm::quat(), 2.0f },
-        { glm::vec3(-10.0f,  0.0f, -14.0f), glm::quat(), 4.0f },
+        { glm::vec3(-10.0f,  4.0f, 5.0f), glm::quat(), 2.0f },
+        { glm::vec3(-10.0f,  -4.0f, -5.0f), glm::quat(), 4.0f },
 
         // Back through center
-        { glm::vec3( 0.0f,  0.0f, -20.0f), glm::quat(), 6.0f },
+        { glm::vec3( 0.0f,  0.0f, 0.0f), glm::quat(), 6.0f },
 
         // Right loop
-        { glm::vec3( 10.0f,  4.0f, -14.0f), glm::quat(), 8.0f },
-        { glm::vec3( 10.0f,  0.0f, -6.0f), glm::quat(), 10.0f },
+        { glm::vec3( 10.0f,  4.0f, 5.0f), glm::quat(), 8.0f },
+        { glm::vec3( 10.0f,  -4.0f, -5.0f), glm::quat(), 10.0f },
 
         // End at center
         { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 12.0f },
 
         // Control point AFTER end
-        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 14.0f }
+        { glm::vec3( 0.0f,  0.0f,  0.0f), glm::quat(), 13.0f }
     };
 
     // ------------ Render Loop ------------
@@ -396,6 +411,10 @@ std::vector<Keyframe> keyframes = {
         }
         renderModel(plane, sceneShader, camera, params);
 
+        // Render skybox last
+        skyboxShader.Activate();
+		skybox.Draw(camera, skyboxShader);
+
         // Render ImGui
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -417,6 +436,7 @@ std::vector<Keyframe> keyframes = {
     ImGui::DestroyContext();
 	// delete shader program
     sceneShader.Delete();
+    skyboxShader.Delete();
     // deletes window before ending program
     glfwDestroyWindow(window);
     // terminate GLFW before ending program

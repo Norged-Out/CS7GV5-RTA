@@ -5,12 +5,11 @@
 */
 
 #include <iostream>
-#include <glad/glad.h>
-#include <GLFW/glfw3.h>
+#include <engine/AppSetup.h>
 #include <engine/Camera.h>
-#include <engine/MathUtils.h>
 #include <engine/Model.h>
 #include <engine/Shader.h>
+#include <engine/MathUtils.h>
 
 // skybox
 #include <engine/HDRTexture.h>
@@ -51,82 +50,6 @@ struct Keyframe {
     glm::quat rotation;
     float time; // seconds
 };
-
-// -------------------- Initialize GLFW --------------------
-
-static GLFWwindow* initWindow(int width, int height, const char* title) {
-
-    if (!glfwInit()) {
-        std::cerr << "Failed to initialize GLFW!" << std::endl;
-        return nullptr;
-    }
-
-    // tell GLFW to use the core Version 3.3
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-
-    GLFWwindow* window = glfwCreateWindow(width, height, title, NULL, NULL);
-    // error check
-    if (!window) {
-        std::cerr << "Failed to create window!" << std::endl;
-        glfwTerminate();
-        return nullptr;
-    }
-
-    // introduce window to current context
-    glfwMakeContextCurrent(window);
-    return window;
-
-}
-
-// function for resizing window
-static void framebuffer_size_callback(GLFWwindow* window, int width, int height) {
-    // Make sure the viewport matches the new window dimensions
-    glViewport(0, 0, width, height);
-    // Update camera as well
-    Camera* cam = static_cast<Camera*>(glfwGetWindowUserPointer(window));
-    if (cam) cam->setSize(width, height);
-}
-
-// -------------------- Initialize GLAD --------------------
-
-static void setupOpenGL() {
-    // use GLAD to configure OpenGL
-    if (!gladLoadGL()) {
-        std::cerr << "Failed to initialize GLAD!" << std::endl;
-        return;
-    }
-    // specify window dimensions
-    glViewport(0, 0, width, height);
-    // Enable depth and backface culling
-    glEnable(GL_DEPTH_TEST);
-    glEnable(GL_CULL_FACE);
-    glCullFace(GL_BACK);
-	glFrontFace(GL_CCW);
-}
-
-// -------------------- Initialize Camera --------------------
-
-static void setupCamera(GLFWwindow* window, Camera& camera) {
-    // attach camera pointer to window
-    glfwSetWindowUserPointer(window, &camera);
-    // register callback
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    // set scroll callback
-    glfwSetScrollCallback(window, [](GLFWwindow* win, double xoff, double yoff) {
-        // forward to camera
-        Camera* cam = static_cast<Camera*>(glfwGetWindowUserPointer(win));
-        if (cam) cam->OnScroll(yoff);
-        });
-    // Point camera at scene center
-    glm::vec3 target(0.0f, 0.0f, 0.0f);
-    camera.Position = glm::vec3(0.0f, 0.0f, 5.0f);
-    glm::vec3 dir = glm::normalize(target - camera.Position);
-    camera.Orientation = dir;
-    camera.pitch = glm::degrees(asin(dir.y));
-    camera.yaw = glm::degrees(atan2(dir.z, dir.x));
-}
 
 // -------------------- GUI Setup --------------------
 
@@ -176,7 +99,7 @@ static void renderModel(Model& model, Shader& shader, Camera& camera,
 
 static void updateAircraftRotation(GLFWwindow* window, Model& model,
     TweakableParams& params, float dt, glm::quat& aircraftQuat) {
-    const RotationOrder order = RotationOrder::YXZ;
+    const MathUtils::RotationOrder order = MathUtils::RotationOrder::YXZ;
 
     // ---------------- Euler mode ----------------
     if (!params.useQuaternionMode) {
@@ -286,31 +209,21 @@ int main() {
 
     // ------------ Initialize the Window ------------
 
-    // create a window of 800x800 size
+    // create a window
     GLFWwindow* window = initWindow(width, height, "Testing");
     if (!window) return -1;
 
     // sanity check for smooth camera motion
     glfwSwapInterval(1);
 
-    // use GLAD to configure OpenGL
-    if (!gladLoadGL()) {
-        std::cerr << "Failed to initialize GLAD!" << std::endl;
-        return -1;
-    }
-    setupOpenGL();
+    if (!setupOpenGL()) return -1;
 
     // Creates camera object
     Camera camera(width, height, glm::vec3(0.0f, 0.0f, 2.0f));
 	setupCamera(window, camera);
 
     // Initialize ImGui
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    ImGui::StyleColorsDark();
-    ImGui_ImplGlfw_InitForOpenGL(window, true);
-    ImGui_ImplOpenGL3_Init("#version 330");
+    initImGui(window);
 
     // Load HDR texture for skybox
     HDRTexture hdri("Environment/skybox.hdr");
@@ -430,17 +343,12 @@ int main() {
 
     // ------------ Clean up ------------
     
-    // Cleanup ImGui
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
-    ImGui::DestroyContext();
-	// delete shader program
+    // delete shader program
     sceneShader.Delete();
     skyboxShader.Delete();
-    // deletes window before ending program
-    glfwDestroyWindow(window);
-    // terminate GLFW before ending program
-    glfwTerminate();
+
+    shutdownImGui();
+    shutdownWindow(window);
 
 
     return 0;

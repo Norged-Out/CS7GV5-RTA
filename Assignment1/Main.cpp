@@ -1,6 +1,6 @@
 /*
 * Author: Priyansh Nayak
-* Project: Test
+* Project: Plane Rotation
 * Course: CS7GV5: Real-Time Animation
 */
 
@@ -147,6 +147,10 @@ static void updateAircraftRotation(GLFWwindow* window, Model& model,
 
         aircraftQuat = glm::normalize(aircraftQuat);
         model.setRotationQuat(aircraftQuat);
+        glm::vec3 eulerRad = glm::eulerAngles(aircraftQuat);
+        params.pitchDeg = glm::degrees(eulerRad.x);
+        params.yawDeg   = glm::degrees(eulerRad.y);
+        params.rollDeg  = glm::degrees(eulerRad.z);
     }
 }
 
@@ -175,8 +179,14 @@ static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
     
     // Normalized time between keyframes [0, 1]
     float t = (animTime - k1.time) / (k2.time - k1.time);
-    // Easing for smoother motion
-    if (animTime < duration - 0.2f) t = MathUtils::easeInOut(t);
+
+    //Seam-based easing (only near loop start/end)
+    float seamTime = 0.5f; // seconds of smoothing near start/end
+
+    bool nearStart = animTime < seamTime;
+    bool nearEnd   = animTime > duration - seamTime;
+    // Apply easing only withing start/end seam regions
+    if (nearStart || nearEnd) t = MathUtils::easeInOut(t);
 
     // Interpolate position with Catmull-Rom spline
     glm::vec3 pos = MathUtils::catmullRom(k0.position, k1.position, k2.position, k3.position, t);
@@ -205,12 +215,12 @@ static void updateAircraftFromKeyframes(Model& model, float& animTime, float dt,
 // -------------------- Main --------------------
 
 int main() {
-    std::cout << "Testing" << std::endl;
+    std::cout << "Assignment 1: Plane Rotation" << std::endl;
 
     // ------------ Initialize the Window ------------
 
     // create a window
-    GLFWwindow* window = initWindow(width, height, "Testing");
+    GLFWwindow* window = initWindow(width, height, "Assignment 1: Plane Rotation");
     if (!window) return -1;
 
     // sanity check for smooth camera motion
@@ -237,7 +247,7 @@ int main() {
 
     Shader sceneShader("Shaders/scene.vert", "Shaders/scene.frag");
     sceneShader.Activate();
-    sceneShader.setBool("useTexture", true);
+    sceneShader.setBool("useTextures", true);
     sceneShader.setInt("diffuse0", 0);
     sceneShader.setInt("specular0", 1);
 

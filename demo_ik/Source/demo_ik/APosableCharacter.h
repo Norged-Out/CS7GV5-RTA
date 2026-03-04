@@ -192,7 +192,7 @@ protected:
 
 	// Solver settings
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
-	int32 IK_MaxIterations = 10;
+	int32 IK_MaxIterations = 25;
 
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
 	float IK_Tolerance = 1.0f;
@@ -214,11 +214,7 @@ protected:
 	float IK_ForearmMaxTwist = 80.f;
 
 	// Wrist limits
-	float IK_WristMinPitch = -60.f;
-	float IK_WristMaxPitch = 60.f;
-
-	float IK_WristMinYaw = -45.f;
-	float IK_WristMaxYaw = 45.f;
+	float IK_WristMaxAngle = 80.0f;
 
 	// Entry points
 	void InitializeFABRIK_Arm();

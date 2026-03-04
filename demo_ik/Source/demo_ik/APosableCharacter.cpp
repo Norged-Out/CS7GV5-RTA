@@ -484,14 +484,6 @@ void AAPosableCharacter::SolveFABRIK_Arm(const FVector& TargetPosition)
 		*IK_JointPositions[2].ToString(),
 		FinalError);
 
-	// Apply constraints
-	ApplyShoulderConstraint();
-	ApplyElbowConstraint();
-	ApplyWristConstraint();
-
-	// rebuild positions
-	SolveFABRIK_Positions(WristTarget, RootPosition, DistanceToTarget);
-
 	// Apply rotations
 	ApplyFABRIKRotations(Chain);
 	LockForearmRoll();
@@ -502,6 +494,10 @@ void AAPosableCharacter::SolveFABRIK_Positions(const FVector& TargetPosition,
 	const FVector& RootPosition, float DistanceToTarget)
 {
 	const int32 NumJoints = IK_JointPositions.Num();
+
+	// Direction from root toward target
+	FVector TargetDir = (TargetPosition - RootPosition).GetSafeNormal();
+	float Bias = 0.1f;
 
 	if (DistanceToTarget > IK_TotalArmLength)
 	{
@@ -517,7 +513,7 @@ void AAPosableCharacter::SolveFABRIK_Positions(const FVector& TargetPosition,
 	{
 		for (int32 Iter = 0; Iter < IK_MaxIterations; ++Iter)
 		{
-			// Backward
+			// Backward pass
 			IK_JointPositions.Last() = TargetPosition;
 
 			for (int32 i = NumJoints - 2; i >= 0; --i)
@@ -529,17 +525,28 @@ void AAPosableCharacter::SolveFABRIK_Positions(const FVector& TargetPosition,
 					IK_JointPositions[i + 1] + Dir * IK_BoneLengths[i];
 			}
 
-			// Forward
+			// Apply constraints
+			ApplyShoulderConstraint();
+			ApplyElbowConstraint();
+			ApplyWristConstraint();
+
+			// Forward pass
 			IK_JointPositions[0] = RootPosition;
 
 			for (int32 i = 1; i < NumJoints; ++i)
 			{
 				FVector Dir =
 					(IK_JointPositions[i] - IK_JointPositions[i - 1]).GetSafeNormal();
+				Dir = (Dir * (1.f - Bias) + TargetDir * Bias).GetSafeNormal();
 
 				IK_JointPositions[i] =
 					IK_JointPositions[i - 1] + Dir * IK_BoneLengths[i - 1];
 			}
+
+			// Apply constraints
+			ApplyShoulderConstraint();
+			ApplyElbowConstraint();
+			ApplyWristConstraint();
 
 			if (FVector::Distance(IK_JointPositions.Last(), TargetPosition) < IK_Tolerance)
 				break;
@@ -590,70 +597,67 @@ void AAPosableCharacter::ApplyElbowConstraint()
 {
 	if (IK_JointPositions.Num() < 3) return;
 
-	FVector Upper = (IK_JointPositions[1] - IK_JointPositions[0]).GetSafeNormal();
-	FVector Lower = (IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal();
-
-	// Clamp elbow angle 
-	float Dot = FVector::DotProduct(Upper, Lower);
-	Dot = FMath::Clamp(Dot, -1.f, 1.f);
-
-	float Angle = FMath::RadiansToDegrees(FMath::Acos(Dot));
-
-	if (Angle < IK_MinElbowAngle || Angle > IK_MaxElbowAngle)
-	{
-		float Clamped = FMath::Clamp(Angle, IK_MinElbowAngle, IK_MaxElbowAngle);
-		float Delta = Clamped - Angle;
-
-		FVector Axis = FVector::CrossProduct(Upper, Lower).GetSafeNormal();
-		FQuat Correction = FQuat(Axis, FMath::DegreesToRadians(Delta));
-
-		Lower = Correction.RotateVector(Lower);
-
-		IK_JointPositions[2] =
-			IK_JointPositions[1] + Lower * IK_BoneLengths[1];
-	}
-
-	// Stable pole projection
 	FVector Shoulder = IK_JointPositions[0];
+	FVector Elbow = IK_JointPositions[1];
 	FVector Hand = IK_JointPositions[2];
 
-	// Plane normal defined by shoulder to hand and pole vector
+	// Direction from shoulder to hand
 	FVector ShoulderToHand = (Hand - Shoulder).GetSafeNormal();
 
-	// use character forward to keep elbow bending sideways
+	// Character forward keeps elbow bending sideways relative to torso
 	FVector BodyForward = GetActorForwardVector();
 
+	// Compute a stable pole vector
 	FVector StablePole =
 		FVector::CrossProduct(BodyForward, ShoulderToHand).GetSafeNormal();
 
+	// Plane normal defining elbow hinge plane
 	FVector PlaneNormal =
 		FVector::CrossProduct(ShoulderToHand, StablePole).GetSafeNormal();
 
-	
-	//FVector TargetDir = (Hand - Shoulder).GetSafeNormal();
-	//FVector ActorUp = GetActorUpVector();
-
-	//// dynamic elbow plane
-	//FVector Side = FVector::CrossProduct(TargetDir, ActorUp).GetSafeNormal();
-	//FVector StablePole = FVector::CrossProduct(Side, TargetDir).GetSafeNormal();
-
-	//FVector PlaneNormal =
-	//	FVector::CrossProduct(TargetDir, StablePole).GetSafeNormal();
-
 	if (!PlaneNormal.IsNearlyZero())
 	{
-		// project elbow onto that plane
-		FVector ShoulderToElbow = IK_JointPositions[1] - Shoulder;
+		// Project elbow onto the hinge plane
+		FVector ShoulderToElbow = Elbow - Shoulder;
 
 		FVector Projected =
 			FVector::VectorPlaneProject(ShoulderToElbow, PlaneNormal).GetSafeNormal();
 
 		IK_JointPositions[1] =
 			Shoulder + Projected * IK_BoneLengths[0];
+	}
 
-		UE_LOG(LogTemp, Warning,
-			TEXT("ELBOW STABILIZED | PlaneNormal=%s"),
-			*PlaneNormal.ToString());
+	// Clamp elbow bend angle
+	FVector Upper =
+		(IK_JointPositions[1] - IK_JointPositions[0]).GetSafeNormal();
+
+	FVector Lower =
+		(IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal();
+
+	float Dot = FVector::DotProduct(Upper, Lower);
+	Dot = FMath::Clamp(Dot, -1.f, 1.f);
+
+	float Angle = FMath::RadiansToDegrees(FMath::Acos(Dot));
+
+	// Enforce min/max elbow bend
+	if (Angle < IK_MinElbowAngle || Angle > IK_MaxElbowAngle)
+	{
+		float Clamped = FMath::Clamp(Angle, IK_MinElbowAngle, IK_MaxElbowAngle);
+		float Delta = Clamped - Angle;
+
+		// Axis around which elbow bends
+		FVector Axis =
+			FVector::CrossProduct(Upper, Lower).GetSafeNormal();
+
+		// Rotate forearm back inside allowed range
+		FQuat Correction =
+			FQuat(Axis, FMath::DegreesToRadians(Delta));
+
+		Lower = Correction.RotateVector(Lower);
+
+		// Rebuild wrist position with corrected forearm direction
+		IK_JointPositions[2] =
+			IK_JointPositions[1] + Lower * IK_BoneLengths[1];
 	}
 }
 
@@ -705,30 +709,50 @@ void AAPosableCharacter::ApplyShoulderConstraint()
 	IK_JointPositions[1] =
 		Shoulder + NewDir * IK_BoneLengths[0];
 }
+
 void AAPosableCharacter::ApplyWristConstraint()
 {
 	if (IK_JointPositions.Num() < 3) return;
 
-	// Direction from hand to palm
+	FVector Shoulder = IK_JointPositions[0];
+	FVector Elbow = IK_JointPositions[1];
+	FVector Hand = IK_JointPositions[2];
+
+	// Direction of upper arm (parent direction)
+	FVector ParentDir =
+		(Elbow - Shoulder).GetSafeNormal();
+
+	// Current forearm direction
 	FVector WristDir =
-		(IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal();
+		(Hand - Elbow).GetSafeNormal();
 
-	// Convert to rotation for clamping
-	FRotator WristRot = WristDir.Rotation();
+	// Compute angle between upper arm and forearm
+	float Dot = FVector::DotProduct(ParentDir, WristDir);
+	Dot = FMath::Clamp(Dot, -1.f, 1.f);
 
-	// Clamp wrist motion
-	WristRot.Pitch = FMath::Clamp(WristRot.Pitch,
-		IK_WristMinPitch, IK_WristMaxPitch);
+	float Angle = FMath::RadiansToDegrees(FMath::Acos(Dot));
 
-	WristRot.Yaw = FMath::Clamp(WristRot.Yaw,
-		IK_WristMinYaw, IK_WristMaxYaw);
+	// Maximum allowed wrist bend (cone limit)
+	float MaxAngle = IK_WristMaxAngle;
 
-	// Convert back to direction
-	FVector ClampedDir = WristRot.Vector();
+	if (Angle > MaxAngle)
+	{
+		// Amount we exceeded the limit
+		float Excess = Angle - MaxAngle;
 
-	// Reapply constrained palm position
+		// Axis that rotates WristDir back toward ParentDir
+		FVector Axis =
+			FVector::CrossProduct(ParentDir, WristDir).GetSafeNormal();
+
+		FQuat Correction =
+			FQuat(Axis, FMath::DegreesToRadians(-Excess));
+
+		WristDir = Correction.RotateVector(WristDir);
+	}
+
+	// Rebuild wrist position using corrected direction
 	IK_JointPositions[2] =
-		IK_JointPositions[1] + ClampedDir * IK_BoneLengths[1];
+		Elbow + WristDir * IK_BoneLengths[1];
 }
 
 FVector AAPosableCharacter::ComputePalmCentroid()

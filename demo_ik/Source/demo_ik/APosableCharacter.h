@@ -245,6 +245,29 @@ protected:
 
 	float SplineTime = 0.0f;
 
+	/* ---- Head Look At ---- */
+
+	UPROPERTY(EditAnywhere, Category = "IK|Head")
+	FName NeckBone = "neck_02";
+
+	UPROPERTY(EditAnywhere, Category = "IK|Head")
+	FName HeadBone = "head";
+
+	UPROPERTY(EditAnywhere, Category = "IK|Head")
+	float HeadYawLimit = 80.f;
+
+	UPROPERTY(EditAnywhere, Category = "IK|Head")
+	float HeadPitchLimit = 60.f;
+
+	UPROPERTY(EditAnywhere, Category = "IK|Head")
+	float LookActivationAngle = 30.f;
+
+	FRotator NeckRestRot;
+	FRotator HeadRestRot;
+	FRotator CurrentHeadRot;
+
+	void ApplyHeadLookAt(const FVector& Target);
+
 
 protected:
 	// Called when the game starts or when spawned

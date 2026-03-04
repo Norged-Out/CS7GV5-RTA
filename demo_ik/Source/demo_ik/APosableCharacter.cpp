@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "APosableCharacter.h"
+#include "Kismet/KismetMathLibrary.h"
 
 // Sets default values
 AAPosableCharacter::AAPosableCharacter()
@@ -778,6 +779,48 @@ void AAPosableCharacter::LockForearmRoll()
 		EBoneSpaces::ComponentSpace);
 }
 
+void AAPosableCharacter::ApplyHeadLookAt(const FVector& Target)
+{
+	if (!posableMeshComponent_reference) return;
+
+	// get head position
+	FVector HeadPos =
+		posableMeshComponent_reference->GetBoneLocationByName(
+			HeadBone, EBoneSpaces::ComponentSpace);
+
+	// direction from head to target
+	FVector AimPoint = Target + FVector(0, 0, 10); // slight upward bias
+	FVector Dir = (AimPoint - HeadPos).GetSafeNormal();
+
+	// convert direction into rotation
+	FRotator LookRot = Dir.Rotation();
+
+	// convert world rotation into character-local rotation
+	FRotator TargetRot = UKismetMathLibrary::NormalizedDeltaRotator(LookRot, GetActorRotation());
+	CurrentHeadRot = FMath::RInterpTo(CurrentHeadRot, TargetRot, GetWorld()->GetDeltaSeconds(), 5.f);
+	FRotator LocalRot = CurrentHeadRot;
+
+	// clamp natural limits
+	LocalRot.Yaw = FMath::Clamp(LocalRot.Yaw, -HeadYawLimit, HeadYawLimit);
+	LocalRot.Pitch = FMath::Clamp(LocalRot.Pitch, -HeadPitchLimit, HeadPitchLimit);
+	LocalRot.Roll = 0.f;
+
+	// split motion across neck/head
+	FRotator NeckOffset = LocalRot * 0.35f;
+	FRotator HeadOffset = LocalRot * 0.45f;
+
+	// apply rotations relative to rest pose
+
+	posableMeshComponent_reference->SetBoneRotationByName(
+		NeckBone,
+		NeckRestRot + NeckOffset,
+		EBoneSpaces::ComponentSpace);
+
+	posableMeshComponent_reference->SetBoneRotationByName(
+		HeadBone,
+		HeadRestRot + HeadOffset,
+		EBoneSpaces::ComponentSpace);
+}
 
 // Called when the game starts or when spawned
 void AAPosableCharacter::BeginPlay()
@@ -795,6 +838,9 @@ void AAPosableCharacter::BeginPlay()
 
 	// Initialize FABRIK leg solver
 	InitializeFABRIK_Arm();
+
+	NeckRestRot = posableMeshComponent_reference->GetBoneRotationByName(NeckBone, EBoneSpaces::ComponentSpace);
+	HeadRestRot = posableMeshComponent_reference->GetBoneRotationByName(HeadBone, EBoneSpaces::ComponentSpace);
 }
 
 // Called every frame
@@ -845,6 +891,7 @@ void AAPosableCharacter::Tick(float DeltaTime)
 
 			// solve IK
 			SolveFABRIK_Arm(Target);
+			ApplyHeadLookAt(Target);
 		}
 		break;
 

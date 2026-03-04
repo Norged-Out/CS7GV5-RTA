@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "Components/PoseableMeshComponent.h"
+#include "Components/SplineComponent.h"
 #include "APosableCharacter.generated.h"
 
 /**
@@ -169,9 +170,6 @@ protected:
 	**/
 	void idle_tickAnimation(float DeltaTime);
 
-
-	/* -------- FABRIK -------- */
-
 	// Bone chain 
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
 	FName ArmRootBone = "upperarm_r";
@@ -235,6 +233,17 @@ protected:
 	void ApplyWristConstraint();
 	FVector ComputePalmCentroid();
 	void LockForearmRoll();
+
+
+	/* -------- SPLINE -------- */
+
+
+	UPROPERTY(VisibleAnywhere, Category = "Animation|Spline")
+	USplineComponent* HandPathSpline;
+	UPROPERTY(EditAnywhere, Category = "Animation|Spline")
+	float SplineDuration = 5.0f;
+
+	float SplineTime = 0.0f;
 
 
 protected:

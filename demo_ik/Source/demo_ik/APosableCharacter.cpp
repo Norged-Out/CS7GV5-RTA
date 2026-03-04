@@ -67,6 +67,9 @@ AAPosableCharacter::AAPosableCharacter()
 		UE_LOG(LogTemp, Warning, TEXT("sphere not found, check the path."));
 	}
 
+
+	HandPathSpline = CreateDefaultSubobject<USplineComponent>(TEXT("HandPathSpline"));
+	HandPathSpline->SetupAttachment(RootComponent);
 }
 
 bool AAPosableCharacter::initializePosableMesh()
@@ -798,6 +801,7 @@ void AAPosableCharacter::BeginPlay()
 void AAPosableCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 	switch (CurrentMode)
 	{
 	case EAnimMode::Idle:
@@ -809,12 +813,37 @@ void AAPosableCharacter::Tick(float DeltaTime)
 		break;
 
 	case EAnimMode::IK_Arm:
-		if (targetSphere)
+
+		// move target along spline
+		if (HandPathSpline && targetSphere)
 		{
+			// advance animation time
+			SplineTime += DeltaTime;
+
+			// normalize 0->1 over duration
+			float Alpha = FMath::Fmod(SplineTime / SplineDuration, 1.f);
+
+			// ease in/out motion
+			Alpha = FMath::InterpEaseInOut(0.f, 1.f, Alpha, 2.f);
+
+			// convert alpha to spline distance
+			float Distance = Alpha * HandPathSpline->GetSplineLength();
+
+			// sample spline position
+			FVector SplinePos =
+				HandPathSpline->GetLocationAtDistanceAlongSpline(
+					Distance,
+					ESplineCoordinateSpace::World);
+
+			// move sphere
+			targetSphere->SetWorldLocation(SplinePos);
+
+			// convert to component space for IK
 			FVector Target = posableMeshComponent_reference
 				->GetComponentTransform()
-				.InverseTransformPosition(targetSphere->GetComponentLocation());
+				.InverseTransformPosition(SplinePos);
 
+			// solve IK
 			SolveFABRIK_Arm(Target);
 		}
 		break;
@@ -822,6 +851,5 @@ void AAPosableCharacter::Tick(float DeltaTime)
 	default:
 		break;
 	}
-
 }
 

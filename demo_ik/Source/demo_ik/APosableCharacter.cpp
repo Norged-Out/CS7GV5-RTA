@@ -387,7 +387,12 @@ void AAPosableCharacter::InitializeFABRIK_Arm()
 	IK_BoneLengths.Empty();
 	IK_TotalArmLength = 0.0f;
 
-	TArray<FName> Chain = { ArmRootBone, ArmMidBone, ArmEndBone };
+	TArray<FName> Chain =
+	{
+		ArmRootBone,
+		ArmMidBone,
+		ArmHandBone
+	};
 
 	for (FName Bone : Chain)
 	{
@@ -411,7 +416,6 @@ void AAPosableCharacter::InitializeFABRIK_Arm()
 	FVector Upper = (IK_JointPositions[1] - IK_JointPositions[0]).GetSafeNormal();
 	FVector Lower = (IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal();
 
-	// Store original shoulder direction
 	IK_OriginalUpperDir = Upper;
 
 	// Store elbow direction
@@ -426,7 +430,12 @@ void AAPosableCharacter::SolveFABRIK_Arm(const FVector& TargetPosition)
 	const int32 NumJoints = IK_JointPositions.Num();
 	if (NumJoints < 3) return;
 
-	TArray<FName> Chain = { ArmRootBone, ArmMidBone, ArmEndBone };
+	TArray<FName> Chain =
+	{
+		ArmRootBone,
+		ArmMidBone,
+		ArmHandBone
+	};
 
 	// Update joint positions from current mesh
 	for (int32 i = 0; i < NumJoints; ++i)
@@ -437,42 +446,51 @@ void AAPosableCharacter::SolveFABRIK_Arm(const FVector& TargetPosition)
 	}
 
 	FVector RootPosition = IK_JointPositions[0];
-	float DistanceToTarget = FVector::Distance(RootPosition, TargetPosition);
+
+	// --- palm centroid ---
+	FVector PalmCenter = ComputePalmCentroid();
+	FVector HandPos = IK_JointPositions[2];
+	FVector PalmOffset = PalmCenter - HandPos;
+
+	// wrist target so palm hits sphere
+	FVector WristTarget = TargetPosition - PalmOffset;
+
+	float DistanceToTarget = FVector::Distance(RootPosition, WristTarget);
+	bool bReachable = DistanceToTarget <= IK_TotalArmLength;
 
 	UE_LOG(LogTemp, Warning,
-		TEXT("BEFORE | Root=%s  Elbow=%s  Hand=%s  Target=%s  Dist=%.2f  Total=%.2f"),
-		*IK_JointPositions[0].ToString(),
-		*IK_JointPositions[1].ToString(),
-		*IK_JointPositions[2].ToString(),
+		TEXT("TARGET | Sphere=%s Palm=%s WristTarget=%s Offset=%s Reachable=%s Dist=%.2f Max=%.2f"),
 		*TargetPosition.ToString(),
-		FVector::Distance(IK_JointPositions[0], TargetPosition),
+		*PalmCenter.ToString(),
+		*WristTarget.ToString(),
+		*PalmOffset.ToString(),
+		bReachable ? TEXT("YES") : TEXT("NO"),
+		DistanceToTarget,
 		IK_TotalArmLength);
 
 	// Solve positions
-	SolveFABRIK_Positions(TargetPosition, RootPosition, DistanceToTarget);
+	SolveFABRIK_Positions(WristTarget, RootPosition, DistanceToTarget);
+
+	float FinalError = FVector::Distance(IK_JointPositions[2], WristTarget);
 
 	UE_LOG(LogTemp, Warning,
-		TEXT("AFTER  | Root=%s  Elbow=%s  Hand=%s"),
+		TEXT("SOLVED | Shoulder=%s Elbow=%s Wrist=%s Error=%.3f"),
 		*IK_JointPositions[0].ToString(),
 		*IK_JointPositions[1].ToString(),
-		*IK_JointPositions[2].ToString());
+		*IK_JointPositions[2].ToString(),
+		FinalError);
 
 	// Apply constraints
-	ApplyElbowConstraint();
 	ApplyShoulderConstraint();
+	ApplyElbowConstraint();
 	ApplyWristConstraint();
 
-	IK_JointPositions[2] = TargetPosition;
-
-	IK_JointPositions[1] =
-		IK_JointPositions[2] -
-		(IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal()
-		* IK_BoneLengths[1];
-
-	IK_JointPositions[0] = RootPosition;
+	// rebuild positions
+	SolveFABRIK_Positions(WristTarget, RootPosition, DistanceToTarget);
 
 	// Apply rotations
 	ApplyFABRIKRotations(Chain);
+	LockForearmRoll();
 }
 
 
@@ -592,77 +610,170 @@ void AAPosableCharacter::ApplyElbowConstraint()
 	}
 
 	// Stable pole projection
-	FVector ShoulderToHand =
-		(IK_JointPositions[2] - IK_JointPositions[0]).GetSafeNormal();
+	FVector Shoulder = IK_JointPositions[0];
+	FVector Hand = IK_JointPositions[2];
 
-	FVector DesiredElbowDir =
-		FVector::VectorPlaneProject(IK_PoleVector, ShoulderToHand).GetSafeNormal();
+	// Plane normal defined by shoulder to hand and pole vector
+	FVector ShoulderToHand = (Hand - Shoulder).GetSafeNormal();
 
-	IK_JointPositions[1] =
-		IK_JointPositions[0] +
-		DesiredElbowDir * IK_BoneLengths[0];
+	// use character forward to keep elbow bending sideways
+	FVector BodyForward = GetActorForwardVector();
+
+	FVector StablePole =
+		FVector::CrossProduct(BodyForward, ShoulderToHand).GetSafeNormal();
+
+	FVector PlaneNormal =
+		FVector::CrossProduct(ShoulderToHand, StablePole).GetSafeNormal();
+
+	
+	//FVector TargetDir = (Hand - Shoulder).GetSafeNormal();
+	//FVector ActorUp = GetActorUpVector();
+
+	//// dynamic elbow plane
+	//FVector Side = FVector::CrossProduct(TargetDir, ActorUp).GetSafeNormal();
+	//FVector StablePole = FVector::CrossProduct(Side, TargetDir).GetSafeNormal();
+
+	//FVector PlaneNormal =
+	//	FVector::CrossProduct(TargetDir, StablePole).GetSafeNormal();
+
+	if (!PlaneNormal.IsNearlyZero())
+	{
+		// project elbow onto that plane
+		FVector ShoulderToElbow = IK_JointPositions[1] - Shoulder;
+
+		FVector Projected =
+			FVector::VectorPlaneProject(ShoulderToElbow, PlaneNormal).GetSafeNormal();
+
+		IK_JointPositions[1] =
+			Shoulder + Projected * IK_BoneLengths[0];
+
+		UE_LOG(LogTemp, Warning,
+			TEXT("ELBOW STABILIZED | PlaneNormal=%s"),
+			*PlaneNormal.ToString());
+	}
 }
 
 void AAPosableCharacter::ApplyShoulderConstraint()
 {
-	// Safety check
 	if (IK_JointPositions.Num() < 2) return;
 
-	// Current upper arm direction
-	FVector CurrentDir =
-		(IK_JointPositions[1] - IK_JointPositions[0]).GetSafeNormal();
+	FVector Shoulder = IK_JointPositions[0];
+	FVector Elbow = IK_JointPositions[1];
 
-	// Compare with original rest direction
-	float Dot = FVector::DotProduct(IK_OriginalUpperDir, CurrentDir);
+	// Current arm direction (component space)
+	FVector Dir = (Elbow - Shoulder).GetSafeNormal();
+
+	// Convert to actor-local space so constraint follows torso
+	FVector LocalDir =
+		GetActorTransform().InverseTransformVectorNoScale(Dir);
+
+	// Rest direction stored in actor space (set once in init)
+	FVector RestDir = IK_OriginalUpperDir;
+	RestDir.Normalize();
+
+	// Angle from rest direction
+	float Dot = FVector::DotProduct(RestDir, LocalDir);
 	Dot = FMath::Clamp(Dot, -1.f, 1.f);
 
-	// Compute how far the shoulder has rotated
 	float Angle = FMath::RadiansToDegrees(FMath::Acos(Dot));
+	float MaxAngle = IK_MaxShoulderAngle;
 
-	// If beyond allowed range, clamp it
-	if (Angle > IK_MaxShoulderAngle)
+	if (Angle > MaxAngle)
 	{
-		// How much we exceeded limit
-		float Excess = Angle - IK_MaxShoulderAngle;
+		float Excess = Angle - MaxAngle;
 
-		// Axis around which rotation happened
 		FVector Axis =
-			FVector::CrossProduct(IK_OriginalUpperDir, CurrentDir).GetSafeNormal();
+			FVector::CrossProduct(RestDir, LocalDir).GetSafeNormal();
 
-		// Rotate back by the excess amount
 		FQuat Correction =
 			FQuat(Axis, FMath::DegreesToRadians(-Excess));
 
-		FVector ClampedDir =
-			Correction.RotateVector(CurrentDir);
-
-		// Reapply clamped shoulder direction
-		IK_JointPositions[1] =
-			IK_JointPositions[0] + ClampedDir * IK_BoneLengths[0];
+		LocalDir = Correction.RotateVector(LocalDir);
 	}
-}
 
+	// Convert back to component space
+	FVector NewDir =
+		GetActorTransform().TransformVectorNoScale(LocalDir);
+
+	NewDir.Normalize();
+
+	// Rebuild elbow position
+	IK_JointPositions[1] =
+		Shoulder + NewDir * IK_BoneLengths[0];
+}
 void AAPosableCharacter::ApplyWristConstraint()
 {
 	if (IK_JointPositions.Num() < 3) return;
 
-	FVector Lower =
+	// Direction from hand to palm
+	FVector WristDir =
 		(IK_JointPositions[2] - IK_JointPositions[1]).GetSafeNormal();
 
-	FRotator WristRot = Lower.Rotation();
+	// Convert to rotation for clamping
+	FRotator WristRot = WristDir.Rotation();
 
+	// Clamp wrist motion
 	WristRot.Pitch = FMath::Clamp(WristRot.Pitch,
 		IK_WristMinPitch, IK_WristMaxPitch);
 
 	WristRot.Yaw = FMath::Clamp(WristRot.Yaw,
 		IK_WristMinYaw, IK_WristMaxYaw);
 
+	// Convert back to direction
 	FVector ClampedDir = WristRot.Vector();
 
+	// Reapply constrained palm position
 	IK_JointPositions[2] =
 		IK_JointPositions[1] + ClampedDir * IK_BoneLengths[1];
 }
 
+FVector AAPosableCharacter::ComputePalmCentroid()
+{
+	if (!posableMeshComponent_reference) return FVector::ZeroVector;
+
+	FVector Sum = FVector::ZeroVector;
+	int32 Count = 0;
+
+	for (FName Bone : PalmBones)
+	{
+		if (doesBoneOrSocketNameExists(Bone))
+		{
+			Sum += posableMeshComponent_reference->GetBoneLocationByName(
+				Bone,
+				EBoneSpaces::ComponentSpace);
+			Count++;
+		}
+	}
+
+	if (Count == 0) return FVector::ZeroVector;
+
+	return Sum / Count;
+}
+
+void AAPosableCharacter::LockForearmRoll()
+{
+	FName Upper = ArmRootBone;
+	FName Lower = ArmMidBone;
+
+	FTransform UpperT =
+		posableMeshComponent_reference->GetBoneTransformByName(
+			Upper, EBoneSpaces::ComponentSpace);
+
+	FTransform LowerT =
+		posableMeshComponent_reference->GetBoneTransformByName(
+			Lower, EBoneSpaces::ComponentSpace);
+
+	FRotator UpperRot = UpperT.Rotator();
+	FRotator LowerRot = LowerT.Rotator();
+
+	// copy roll from upper arm (hinge behaviour)
+	LowerRot.Roll = UpperRot.Roll;
+
+	posableMeshComponent_reference->SetBoneRotationByName(
+		Lower,
+		LowerRot,
+		EBoneSpaces::ComponentSpace);
+}
 
 
 // Called when the game starts or when spawned

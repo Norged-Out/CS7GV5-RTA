@@ -172,7 +172,7 @@ protected:
 
 	/* -------- FABRIK -------- */
 
-	// Bone chain (2-bone, with hand as end effector)
+	// Bone chain 
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
 	FName ArmRootBone = "upperarm_r";
 
@@ -180,7 +180,17 @@ protected:
 	FName ArmMidBone = "lowerarm_r";
 
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
-	FName ArmEndBone = "hand_r";
+	FName ArmHandBone = "hand_r";
+
+	// Palm centroid bones
+	UPROPERTY(EditAnywhere, Category = "IK|Arm")
+	TArray<FName> PalmBones =
+	{
+		"index_metacarpal_r",
+		"middle_metacarpal_r",
+		"ring_metacarpal_r",
+		"pinky_metacarpal_r"
+	};
 
 	// Solver settings
 	UPROPERTY(EditAnywhere, Category = "IK|Arm")
@@ -196,22 +206,14 @@ protected:
 
 	// Shoulder limits
 	FVector IK_OriginalUpperDir;
-	UPROPERTY(EditAnywhere, Category = "IK|Arm")
 	float IK_MaxShoulderAngle = 110.f;
-
-	float IK_ShoulderMinPitch = -90.f;
-	float IK_ShoulderMaxPitch = 90.f;
-
-	float IK_ShoulderMinYaw = -120.f;
-	float IK_ShoulderMaxYaw = 120.f;
-
-	float IK_ShoulderMinRoll = -60.f;
-	float IK_ShoulderMaxRoll = 60.f;
 
 	// Elbow limits
 	FVector IK_PoleVector;
 	float IK_MinElbowAngle = 5.0f;
 	float IK_MaxElbowAngle = 150.0f;
+	float IK_ForearmMinTwist = -80.f;
+	float IK_ForearmMaxTwist = 80.f;
 
 	// Wrist limits
 	float IK_WristMinPitch = -60.f;
@@ -231,6 +233,8 @@ protected:
 	void ApplyElbowConstraint();
 	void ApplyShoulderConstraint();
 	void ApplyWristConstraint();
+	FVector ComputePalmCentroid();
+	void LockForearmRoll();
 
 
 protected:

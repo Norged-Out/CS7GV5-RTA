@@ -337,7 +337,7 @@ void AAPosableCharacter::idle_tickAnimation(float DeltaTime)
 	int32 NumBones = posableMeshComponent_reference->GetNumBones();
 	if (idle_initialBoneRotations.Num() != NumBones) return;
 
-	// Helper: applies offset relative to stored base pose
+	// applies offset relative to stored base pose
 	auto ApplyOffset = [&](FName Bone, FRotator Offset)
 		{
 			int32 Index = posableMeshComponent_reference->GetBoneIndex(Bone);
@@ -352,16 +352,20 @@ void AAPosableCharacter::idle_tickAnimation(float DeltaTime)
 				EBoneSpaces::ComponentSpace);
 		};
 
-	/* ---------- NORMAL IDLE MOTION ---------- */
+	// idle actions
 
-	float breathe = FMath::Sin(Time * 1.2f) * 3.f;            // chest breathing
-	float headYaw = FMath::Sin(Time * 0.6f) * 12.f;           // look left/right
-	float headPitch = FMath::Sin(Time * 0.8f) * 4.f;          // slight nod
-	float shoulderRoll = FMath::Sin(Time * 1.4f) * 6.f;       // shoulder loosen
-	float armSwing = FMath::Sin(Time * 1.0f) * 20.f;          // warm-up swing
-	float hipShift = FMath::Sin(Time * 0.5f) * 4.f;           // torso sway
-	float pelvisYaw = FMath::Sin(Time * 0.5f) * 6.f;          // pelvic rotation
-	float pelvisRoll = FMath::Sin(Time * 0.5f) * 3.f;         // weight shift
+	float breathe = FMath::Sin(Time * 1.2f) * 4.f;      // chest breathing
+	float headYaw = FMath::Sin(Time * 0.6f) * 12.f;     // look left/right
+	float headPitch = FMath::Sin(Time * 0.8f) * 4.f;    // slight nod
+	float shoulderRoll = FMath::Sin(Time * 1.4f) * 6.f; // shoulder loosen
+	float armSwing = FMath::Sin(Time * 1.0f) * 12.f;    // warm-up swing
+	float handDrift = FMath::Sin(Time * 1.5f) * 3.f;	// hand motion
+	float hipShift = FMath::Sin(Time * 0.5f) * 4.f;     // torso sway
+	float pelvisYaw = FMath::Sin(Time * 0.5f) * 6.f;    // pelvic rotation
+	float pelvisRoll = FMath::Sin(Time * 0.5f) * 3.f;   // weight shift
+	float legRotate = FMath::Sin(Time * 0.4f) * 6.f;    // leg twitching
+	float kneeRelax = FMath::Sin(Time * 0.5f) * 4.f;    // knee bending
+	float footBalance = FMath::Sin(Time * 0.7f) * 4.f;  // foot moving
 
 	ApplyOffset("spine_02", FRotator(breathe, hipShift, 0));
 	ApplyOffset("spine_03", FRotator(breathe * 0.5f, 0, 0));
@@ -371,10 +375,22 @@ void AAPosableCharacter::idle_tickAnimation(float DeltaTime)
 	ApplyOffset("clavicle_l", FRotator(shoulderRoll, 0, 0));
 	ApplyOffset("clavicle_r", FRotator(-shoulderRoll, 0, 0));
 
-	ApplyOffset("upperarm_l", FRotator(armSwing, 0, 0));
-	ApplyOffset("upperarm_r", FRotator(-armSwing, 0, 0));
+	ApplyOffset("upperarm_l", FRotator(armSwing, 0, -10));
+	ApplyOffset("upperarm_r", FRotator(-armSwing, 0, 10));
+
+	ApplyOffset("hand_l", FRotator(0, handDrift, 0));
+	ApplyOffset("hand_r", FRotator(0, -handDrift, 0));
 
 	ApplyOffset("pelvis", FRotator(0, pelvisYaw, pelvisRoll));
+
+	ApplyOffset("thigh_l", FRotator(0, legRotate, 0));
+	ApplyOffset("thigh_r", FRotator(0, -legRotate, 0));
+
+	ApplyOffset("calf_l", FRotator(kneeRelax, 0, 0));
+	ApplyOffset("calf_r", FRotator(-kneeRelax, 0, 0));
+
+	ApplyOffset("foot_l", FRotator(0, footBalance, 0));
+	ApplyOffset("foot_r", FRotator(0, -footBalance, 0));
 
 	posableMeshComponent_reference->RefreshBoneTransforms();
 }

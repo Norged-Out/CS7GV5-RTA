@@ -238,7 +238,6 @@ protected:
 	USplineComponent* HandPathSpline;
 	UPROPERTY(EditAnywhere, Category = "Animation|Spline")
 	float SplineDuration = 5.0f;
-
 	float SplineTime = 0.0f;
 
 	/* ---- Head Look At ---- */

@@ -1,0 +1,265 @@
+DEMO 2 – TWO CHARACTER INTERACTION (ROCK PAPER SCISSORS)
+
+EXTENDED DEVELOPMENT LOG, TECHNICAL BREAKDOWN, AND CRITICAL ANALYSIS
+
+------------------------------------------------------------
+1. INTRODUCTION
+------------------------------------------------------------
+This project presents the development of a two-character interactive animation system within Unreal Engine, structured around a Rock-Paper-Scissors (RPS) gameplay mechanic. The primary objective was to construct a plausible, responsive, and visually coherent interaction between two MetaHuman characters, driven by user input and supported by animation systems such as Blend Spaces, Animation Montages, and keyframe editing.
+
+The implementation focuses on integrating animation systems with gameplay logic, while addressing limitations imposed by imperfect motion capture (mocap) data. Particular attention was given to synchronization, transition smoothing, and system robustness.
+
+------------------------------------------------------------
+2. SYSTEM ARCHITECTURE
+------------------------------------------------------------
+The system is organized around a centralized control structure using a manager blueprint (BP_RPS_Manager). This blueprint serves as the core orchestrator of gameplay and animation flow.
+
+Responsibilities of the manager include:
+- Receiving player input via UI
+- Generating NPC decisions
+- Resolving round outcomes
+- Updating score values
+- Managing game state transitions
+- Synchronizing animation playback between characters
+
+Each character blueprint (Player and NPC) is responsible for:
+- Executing animation montages
+- Handling animation-related events
+- Maintaining a reference to its animation blueprint
+- Hosting a Motion Warping component (experimental feature)
+
+This separation of concerns ensures modularity and clarity within the system.
+
+------------------------------------------------------------
+3. INTERACTION DESIGN
+------------------------------------------------------------
+The chosen interaction is Rock-Paper-Scissors, selected for its simplicity and clear mapping between user input and animation output.
+
+Each round follows this sequence:
+1. Player selects an option (Rock, Paper, or Scissors) via UI
+2. NPC selects an option (randomized)
+3. Manager evaluates the outcome (Win, Lose, Draw)
+4. Corresponding animations are triggered for both characters
+5. Scores are updated
+6. Game state is evaluated for completion
+
+This structure enables consistent and repeatable interaction while maintaining responsiveness.
+
+------------------------------------------------------------
+4. ANIMATION PIPELINE DESIGN DECISION
+------------------------------------------------------------
+A critical design decision was made to utilize COMBINED OUTCOME ANIMATIONS rather than separating animation phases into:
+- throw/action phase
+- reaction phase
+
+Instead, each animation clip encapsulates both the action and its outcome, such as:
+- RWin (Rock Win)
+- RLose (Rock Lose)
+- PWin / PLose
+- SWin / SLose
+
+This decision was driven by limitations in the source mocap data, which exhibited:
+- irregular root motion
+- inconsistent timing
+- positional drift
+- rotational inaccuracies
+
+Separating animation phases would have required extensive cleanup and re-authoring, which was not feasible within the project constraints.
+
+Advantages of this approach:
+- simplified implementation
+- reduced synchronization complexity
+- minimized transition artifacts
+
+Disadvantages:
+- reduced flexibility
+- limited reuse of animation segments
+
+------------------------------------------------------------
+5. BLEND SPACE IMPLEMENTATION
+------------------------------------------------------------
+A Blend Space was implemented to handle transitions between Idle and Ready states.
+
+The Blend Space operates using a parameter (0–1) to interpolate between:
+- Idle (0)
+- Ready (1)
+
+A key observation during development:
+Blend Spaces do not restart animations when switching states. Instead, they continuously evaluate animations in the background.
+
+Implication:
+Switching from Idle to Ready does not begin the Ready animation from frame zero, but rather blends into its current evaluation frame.
+
+As a result, the Blend Space was repurposed as a posture controller rather than a timing-based animation system.
+
+This fulfills the requirement for smooth motion transitions while acknowledging its limitations.
+
+------------------------------------------------------------
+6. ANIMATION MONTAGE SYSTEM
+------------------------------------------------------------
+Animation Montages were used for all gameplay-driven animations, including:
+- RPS outcome animations
+- Draw animation
+- Final victory animations
+
+Montage blending settings were carefully tuned:
+- Blend In: approximately 0.6–1.0 seconds
+- Blend Out: approximately 0.6–1.0 seconds
+- Blend Curve: Hermite Cubic InOut
+
+These extended blend durations were intentionally used to mitigate:
+- abrupt transitions between mismatched poses
+- inconsistencies in mocap data
+
+This represents a deliberate tradeoff:
+- improved visual smoothness
+- reduced responsiveness and increased “floatiness”
+
+------------------------------------------------------------
+7. SYNCHRONIZATION MECHANISM
+------------------------------------------------------------
+A synchronization system was implemented to ensure both characters complete their animations before progressing.
+
+Mechanism:
+- Each montage completion triggers an event
+- A counter (FinishedMontages) is incremented
+- When both characters have finished (count ≥ 2):
+  -> the system proceeds to the next phase
+
+This prevents desynchronization and ensures visual coherence between characters.
+
+------------------------------------------------------------
+8. SCORING AND GAME FLOW MANAGEMENT
+------------------------------------------------------------
+The scoring system is integrated within the manager blueprint.
+
+Process:
+- Scores are updated immediately after round resolution
+- UI is updated accordingly
+- A game-over condition is evaluated
+
+Important design decision:
+Victory animations are not triggered immediately after scoring.
+Instead, they are triggered only after both RPS animations have completed.
+
+This avoids:
+- montage interruption
+- animation overlap
+- visual inconsistency
+
+------------------------------------------------------------
+9. USER INTERFACE INTEGRATION
+------------------------------------------------------------
+A Widget Blueprint (WBP) was implemented to display:
+- Player score
+- NPC score
+- Win message
+
+Functions:
+- UpdateScore(PlayerScore, NPCScore)
+- ShowWinText(String)
+
+UI updates are triggered directly within the scoring logic, ensuring that UI reflects the current game state rather than animation timing.
+
+------------------------------------------------------------
+10. KEYFRAME EDITING AND SEQUENCER WORK
+------------------------------------------------------------
+Due to significant inconsistencies in the mocap data, manual adjustments were required.
+
+Using Sequencer, the following corrections were applied:
+- rotation alignment fixes
+- trimming of problematic frames
+- removal of jitter
+- adjustment of start/end poses
+
+These edits improved:
+- animation readability
+- transition quality
+- overall visual stability
+
+------------------------------------------------------------
+11. MOTION WARPING EXPERIMENTATION
+------------------------------------------------------------
+Motion warping was explored as a method for dynamically aligning characters during the final victory animation.
+
+Implementation steps:
+- Motion Warping component added to character blueprints
+- TargetPoint used as warp target
+- Warp target updated via Blueprint using transform
+- Motion warping notify window added to montage
+
+Observed issue:
+Character briefly snaps to target, then returns to original position.
+
+Analysis:
+This behavior is caused by conflicting root motion in the animation:
+- forward movement followed by return motion
+- warp window unable to override entire motion curve
+
+Conclusion:
+Motion warping was not viable with the given animation data.
+
+Decision:
+Feature was removed from final implementation.
+
+------------------------------------------------------------
+12. ALIGNMENT STRATEGY
+------------------------------------------------------------
+Due to the failure of motion warping, alignment was handled manually:
+- characters positioned explicitly in the level
+- rotations adjusted to ensure facing
+
+This approach provides sufficient alignment for the purposes of the demo while avoiding instability.
+
+------------------------------------------------------------
+13. LIMITATIONS
+------------------------------------------------------------
+The project encountered several limitations:
+
+1. Motion warping could not be successfully implemented due to poor root motion data
+2. Blend Space does not allow animation restart, limiting control over timing
+3. Mocap data contains significant inconsistencies
+4. Alignment is static rather than dynamic
+5. Transition quality is constrained by source material
+
+------------------------------------------------------------
+14. FINAL IMPLEMENTATION STATUS
+------------------------------------------------------------
+Completed:
+- Fully functional RPS interaction system
+- UI-driven input and feedback
+- Animation synchronization
+- Blend Space integration
+- Montage-based animation system
+- Keyframe adjustments
+
+Partially completed:
+- Motion warping (attempted but not retained)
+
+------------------------------------------------------------
+15. CRITICAL ANALYSIS
+------------------------------------------------------------
+The system demonstrates a complete and functional two-character interaction with clear responsiveness to user input.
+
+Strengths:
+- Strong architectural design
+- Effective synchronization mechanism
+- Clear mapping between input and animation
+- Robust handling of animation transitions within constraints
+- Successful integration of UI and gameplay logic
+
+Weaknesses:
+- Lack of dynamic alignment due to warping failure
+- Limited animation flexibility due to combined clips
+- Transition quality limited by mocap data
+
+Design tradeoffs were necessary:
+- Simplicity vs flexibility
+- Stability vs advanced features
+- Smoothness vs responsiveness
+
+Overall, the project meets the core objectives of Demo 2, delivering a coherent and functional system. While advanced animation techniques such as motion warping were not successfully finalized, the development process demonstrates strong problem-solving and adaptation to constraints.
+
+------------------------------------------------------------
+END OF DOCUMENT
+------------------------------------------------------------

@@ -1,0 +1,235 @@
+RPS Animation System – EXTENDED Detailed Progress Report (Demo 2)
+
+----------------------------------------
+1. PROJECT OVERVIEW
+----------------------------------------
+This project implements a two-character interactive animation system based on Rock-Paper-Scissors using Unreal Engine.
+
+Systems integrated:
+- Blueprint gameplay logic (BP_RPS_Manager)
+- Character controllers (BP_Pri, BP_Girl)
+- Animation Blueprints (ABP_Pri, ABP_Girl)
+- Animation Montages (RPS actions + outcomes)
+- 1D Blend Space (Idle ↔ Ready)
+- UI Widget (WBP_RPS)
+
+Goal:
+Deliver a synchronized, interactive animation demo that satisfies:
+- multi-character interaction
+- UI-triggered animation transitions
+- use of Blend Space, smoothing, concatenation, warping, and keyframe adjustment
+
+----------------------------------------
+2. HIGH-LEVEL FLOW
+----------------------------------------
+1. Player presses UI button (Rock/Paper/Scissors)
+2. Manager receives input
+3. Checks bRoundActive:
+   - true → ignore input
+   - false → proceed
+4. Sets bRoundActive = true
+5. Stores PlayerMove
+6. Generates NPCMove (RandomInteger 0–2)
+7. Resolves outcome (Win/Lose/Draw)
+8. Sends (Move + Result) to both characters
+9. Both characters:
+   - set State = 1 (Ready)
+   - wait (delay to allow Ready pose)
+   - play montage
+10. Each character fires dispatcher on montage end
+11. Manager counts completions
+12. When both finished:
+   - set State = 0 (Idle)
+   - bRoundActive = false
+
+----------------------------------------
+3. BLUEPRINT ARCHITECTURE
+----------------------------------------
+
+3.1 BP_RPS_Manager
+Responsibilities:
+- input handling
+- NPC random move
+- round resolution logic
+- synchronization
+- round locking
+
+Key variables:
+- bRoundActive (bool)
+- PlayerMove / NPCMove (E_Move enum)
+- PlayerScore / NPCScore (int)
+- FinishedMontages (int)
+
+----------------------------------------
+
+3.2 BP_Pri (Player)
+- receives PlayerMove + Result
+- selects montage (based on move + outcome)
+- plays montage via AnimBP Slot
+- sets animation State (Idle/Ready)
+- fires dispatcher on completion
+
+----------------------------------------
+
+3.3 BP_Girl (NPC)
+- identical structure to BP_Pri
+- uses NPCMove instead
+
+----------------------------------------
+
+3.4 Animation Blueprints (ABP_Pri / ABP_Girl)
+
+AnimGraph:
+BlendSpace (Idle ↔ Ready)
+→ Slot (DefaultSlot)
+→ Output Pose
+
+Explanation:
+- BlendSpace = base pose system
+- Slot = montage override layer
+
+Variable:
+State (float)
+- 0 = Idle
+- 1 = Ready
+
+----------------------------------------
+4. BLEND SPACE SYSTEM
+----------------------------------------
+
+Type:
+- 1D Blend Space
+
+Axis:
+- State (0 → 1)
+
+Samples:
+- 0 = Idle animation
+- 1 = Ready animation
+
+Purpose:
+- smooth transition between passive and active stance
+- ensures clean return after montage playback
+
+Control:
+Driven externally from Character BP via Anim Instance cast
+
+----------------------------------------
+5. MONTAGE SYSTEM
+----------------------------------------
+
+Animations:
+- Rock_Win / Rock_Lose
+- Paper_Win / Paper_Lose
+- Scissors_Win / Scissors_Lose
+- Draw
+
+Properties:
+- played through DefaultSlot
+- override base pose
+- use Blend In / Blend Out for smoothing
+
+Behavior:
+- triggered after Ready delay
+- return to Blend Space when finished
+
+----------------------------------------
+6. STATE MANAGEMENT
+----------------------------------------
+
+State transitions:
+- BeginPlay → State = 0 (Idle)
+- StartRound → State = 1 (Ready)
+- After both montages → State = 0
+
+Access pattern:
+Get Mesh → Get Anim Instance → Cast → Set State
+
+----------------------------------------
+7. SYNCHRONIZATION SYSTEM
+----------------------------------------
+
+Mechanism:
+- each character fires dispatcher when montage completes
+- manager increments FinishedMontages
+- when FinishedMontages == 2:
+    → reset State for both characters
+    → unlock round
+
+Prevents:
+- animation overlap
+- desynchronization
+- input spam
+
+----------------------------------------
+8. UI SYSTEM
+----------------------------------------
+
+Widget:
+- WBP_RPS
+
+Features:
+- 3 buttons (Rock / Paper / Scissors)
+- each triggers StartRound with enum input
+- properly anchored to screen (no stretching issues)
+
+----------------------------------------
+9. CURRENT ISSUES
+----------------------------------------
+
+Animation displacement:
+- caused by pelvis/root translation in source animations
+- not caused by Blueprint movement
+- deferred to Sequencer correction
+
+Facing inconsistencies:
+- due to mocap differences
+- can be corrected via rotation or animation edit
+
+Immediate montage override:
+- solved by inserting delay after State = 1
+
+----------------------------------------
+10. REQUIREMENT COVERAGE
+----------------------------------------
+
+✔ User-triggered transitions (UI buttons)
+✔ Concatenation (Idle → Ready → Action → Idle)
+✔ Smoothing (Blend Space + montage blend times)
+✔ Blend Space (Idle ↔ Ready)
+✔ Keyframe adjustment (planned via Sequencer)
+⚠ Motion Warping (not yet implemented)
+
+----------------------------------------
+11. NEXT STEPS
+----------------------------------------
+
+- implement Motion Warping for alignment
+- refine animations in Sequencer (trim, stabilize, orient)
+- polish win animation
+- optional: polish lose animations
+- prepare demo recording
+
+----------------------------------------
+12. SYSTEM STATUS
+----------------------------------------
+
+- gameplay loop: COMPLETE
+- animation triggering: STABLE
+- synchronization: WORKING
+- UI: FUNCTIONAL
+- Blend Space: IMPLEMENTED
+
+----------------------------------------
+13. HANDOFF NOTES
+----------------------------------------
+
+- do not refactor core system
+- keep montage + dispatcher architecture
+- animation fixes should be minimal and targeted
+- Motion Warping should be added last
+- focus on demo clarity, not perfection
+
+----------------------------------------
+END OF REPORT
+----------------------------------------

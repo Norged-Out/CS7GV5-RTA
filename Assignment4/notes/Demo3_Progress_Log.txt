@@ -1,0 +1,108 @@
+DEMO 3 – EXTENDED DEVELOPMENT LOG
+Facial Animation System Using MetaHuman Animator
+
+------------------------------------------------------------
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+This project focuses on building a facial animation pipeline using MetaHuman Animator and RAVDESS dataset clips.
+
+Goal:
+- Generate animation from video
+- Apply to multiple MetaHumans
+- Combine clips into sequence
+- Evaluate output quality
+
+------------------------------------------------------------
+2. INITIAL SETUP
+------------------------------------------------------------
+- Unreal Engine project configured
+- MetaHumans imported
+- RAVDESS dataset downloaded
+- Selected subset of clips for testing
+
+------------------------------------------------------------
+3. CLIP IMPORT PIPELINE
+------------------------------------------------------------
+Instead of manual setup, Live Link Capture Manager was used.
+
+Result:
+- Automatic creation of:
+   - Capture Data
+   - Media Source
+   - Audio
+
+This significantly simplified workflow.
+
+------------------------------------------------------------
+4. PERFORMANCE PROCESSING
+------------------------------------------------------------
+Each clip processed individually:
+
+Steps:
+- Open performance asset
+- Assign Capture Data
+- Assign MetaHuman
+- Run processing
+
+Output:
+- Facial animation directly usable
+
+------------------------------------------------------------
+5. SEQUENCER DEVELOPMENT
+------------------------------------------------------------
+- MetaHumans added to Sequencer
+- Animation tracks created
+- Multiple clips arranged sequentially
+- Audio tracks aligned
+
+Alternative method discovered:
+- Dragging Media Texture onto plane auto-generates material
+- Media track linked directly to texture
+
+------------------------------------------------------------
+6. AUDIO ISSUE AND FIX
+------------------------------------------------------------
+Problem:
+- Audio heard in Sequencer but missing in render
+
+Cause:
+- FFmpeg encoder misconfigured (AAC uppercase)
+
+Fix:
+- Use lowercase 'aac'
+- Enable .wav audio export
+
+------------------------------------------------------------
+7. RENDER PIPELINE
+------------------------------------------------------------
+- Movie Render Queue used
+- Image sequence + FFmpeg encoding
+- Audio merged during encoding
+
+------------------------------------------------------------
+8. KEY OBSERVATIONS
+------------------------------------------------------------
+- Workflow is much simpler than expected
+- Identity setup not required for this pipeline
+- Automation handles most setup steps
+- Biggest issues were audio and rendering
+
+------------------------------------------------------------
+9. LIMITATIONS
+------------------------------------------------------------
+- Limited control over facial solve
+- Short clips restrict storytelling
+- Some inconsistencies between characters
+
+------------------------------------------------------------
+10. FINAL STATUS
+------------------------------------------------------------
+- Clips processed successfully
+- Sequencer working
+- Audio working
+- Rendering working
+- Comparison possible between characters
+
+------------------------------------------------------------
+END OF DOCUMENT
+------------------------------------------------------------

@@ -1,19 +1,66 @@
-# ---- build artifacts ----
+# ---- General build artifacts ----
 build/
+Build/
 out/
 bin/
+dist/
 
 # ---- CMake ----
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+compile_commands.json
 *.cmake.user
+
+# ---- Unreal Engine generated files ----
+.vs/
+.vsconfig
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Collections/
+Developers/
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.sln
+*.suo
+*.user
+*.userprefs
+*.xcodeproj
+*.xcworkspace
+*.tmp
+Plugins/*/Binaries/
+Plugins/*/Intermediate/
 
 # ---- IDE ----
 .vscode/
-.vs/
-*.user
-*.suo
+
+# ---- LaTeX temporary files ----
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.glg
+*.glo
+*.gls
+*.idx
+*.ilg
+*.ind
+*.ist
+*.lof
+*.log
+*.lot
+*.nav
+*.out
+*.run.xml
+*.snm
+*.synctex.gz
+*.toc
 
 # ---- OS junk ----
 .DS_Store

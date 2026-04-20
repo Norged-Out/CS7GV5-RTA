@@ -1,0 +1,178 @@
+DEMO 1 – EXTENDED DEVELOPMENT LOG
+Retargeting & Character Diversity
+
+------------------------------------------------------------
+1. PROJECT OVERVIEW
+------------------------------------------------------------
+This demo focuses on retargeting a single walking motion capture animation onto three distinct MetaHuman characters with varying proportions and appearances.
+
+Objective:
+- Apply the same base animation to different characters
+- Adapt motion to suit each character
+- Identify and resolve retargeting issues
+- Evaluate limitations of direct retargeting
+
+------------------------------------------------------------
+2. INITIAL RETARGET ATTEMPT
+------------------------------------------------------------
+The initial workflow used Unreal Engine’s IK Retargeter with auto-generated IK rigs.
+
+Process:
+- Import mocap animation
+- Generate IK rigs (source + target)
+- Create IK Retargeter
+- Map chains automatically
+
+Result:
+- Animation transferred successfully
+- However, multiple critical issues were observed:
+
+Issues:
+- Character becoming invisible due to root misalignment
+- Only hands/feet visible (mesh collapse)
+- Foot penetration into ground
+- Incorrect pelvis height
+- Arms offset due to pose mismatch (T vs A pose)
+- IK goal errors referencing non-existent bones
+
+------------------------------------------------------------
+3. DEBUGGING AND SYSTEM FIXES
+------------------------------------------------------------
+A structured debugging process was required.
+
+Problems Identified:
+- IK Goals incompatible with source skeleton (Vicon)
+- Full Body IK solver introducing instability
+- Post Process Animation Blueprint overriding retargeted transforms
+- Incorrect retarget root configuration
+- Pelvis positioned at ground level in source animation
+
+Fixes Applied:
+- Removed all IK Goals
+- Removed Full Body IK solver from both rigs
+- Disabled Post Process Animation Blueprint during testing
+- Set Retarget Root to pelvis/hips
+- Applied pelvis height offset using retarget pose tools
+- Corrected chain mappings
+
+Outcome:
+- Stable retarget achieved
+- Full body visible
+- Animation playable in retargeter
+
+------------------------------------------------------------
+4. PIPELINE REVISION (KEY DECISION)
+------------------------------------------------------------
+Initial plan:
+- Retarget once and reuse animation for all characters
+
+Observed problem:
+- Large variation in body proportions caused inconsistent results
+
+Final decision:
+- Perform per-character retargeting instead of reuse
+
+Reason:
+- Different limb lengths and proportions affect motion interpretation
+- Single retarget produced unrealistic motion across characters
+- Per-character adjustment allowed better control
+
+------------------------------------------------------------
+5. PER-CHARACTER RETARGET PROCESS
+------------------------------------------------------------
+For each MetaHuman:
+
+Steps:
+1. Duplicate retarget setup
+2. Generate new retargeted animation
+3. Adjust bone transforms manually
+4. Correct pelvis/root alignment
+5. Evaluate grounding and posture
+
+Adjustments:
+- Pelvis height offset
+- Root alignment correction
+- Limb rotation adjustments
+- Minor chain corrections where needed
+
+------------------------------------------------------------
+6. SEQUENCER + CONTROL RIG CLEANUP
+------------------------------------------------------------
+Retargeted animations were not sufficient for final output.
+
+Solution:
+- Bake each animation to Control Rig in Sequencer
+
+Process:
+- Add MetaHuman to Sequencer
+- Add animation track
+- Bake to Control Rig
+- Perform keyframe edits
+
+Corrections:
+- Foot placement adjustment (reduce ground penetration)
+- Rotation corrections (hips, spine, shoulders)
+- Removal of jitter
+- Fixing unnatural poses
+- Smoothing transitions between steps
+
+Outcome:
+- Significantly improved animation stability
+- More believable weight distribution
+- Cleaner motion overall
+
+------------------------------------------------------------
+7. TIMING AND CHARACTER VARIATION
+------------------------------------------------------------
+To adapt motion to each character:
+
+Changes applied:
+- Playrate adjustments per character
+- Minor posture differences introduced
+- Slight offsets in stance and movement
+
+Examples:
+- Larger character → slower playrate, heavier feel
+- Smaller character → faster playrate, lighter movement
+
+------------------------------------------------------------
+8. GROUNDING AND ROOT ISSUES
+------------------------------------------------------------
+One persistent issue was foot penetration.
+
+Cause:
+- Mocap root height mismatch
+- Differences in character proportions
+
+Solutions:
+- Manual adjustment in Control Rig
+- Actor-level Z offset where required
+- Fine-tuning pelvis/root positioning
+
+------------------------------------------------------------
+9. FINAL STATUS
+------------------------------------------------------------
+Completed:
+- 3 MetaHumans retargeted
+- Per-character animation adjustments
+- Control Rig cleanup pass
+- Sequencer setup complete
+
+Result:
+- All characters animate correctly
+- Motion differences visible between characters
+- Grounding acceptable
+- Demo ready for recording/render
+
+------------------------------------------------------------
+10. KEY OBSERVATIONS
+------------------------------------------------------------
+- Retargeting alone is insufficient for diverse characters
+- IK systems require careful configuration
+- Post Process systems can interfere with debugging
+- Manual cleanup is necessary for believable motion
+- Character proportions significantly affect motion quality
+
+------------------------------------------------------------
+END OF DOCUMENT
+------------------------------------------------------------

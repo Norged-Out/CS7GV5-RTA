@@ -1,0 +1,129 @@
+DEMO 1 – RETARGETING & CHARACTER DIVERSITY
+Implementation Report
+
+------------------------------------------------------------
+1. INTRODUCTION
+------------------------------------------------------------
+This demo demonstrates the retargeting of a single walking motion capture animation onto three distinct MetaHuman characters with different body types.
+
+The goal was to evaluate how the same animation behaves across characters and to apply motion adjustments to improve realism.
+
+------------------------------------------------------------
+2. CHARACTER SETUP
+------------------------------------------------------------
+Three MetaHumans were used:
+- Self-avatar (customized MetaHuman)
+- Character of different gender
+- Character with different body size
+
+These variations introduce differences in:
+- limb length
+- body proportions
+- overall scale
+
+------------------------------------------------------------
+3. WORKFLOW OVERVIEW
+------------------------------------------------------------
+Pipeline used:
+
+1. Import mocap animation
+2. Create IK rigs (source + target)
+3. Configure IK Retargeter
+4. Retarget animation individually for each MetaHuman
+5. Export retargeted animations
+6. Add animations to Sequencer
+7. Bake animations to Control Rig
+8. Perform manual adjustments
+9. Render final output
+
+------------------------------------------------------------
+4. RETARGETING PROCESS
+------------------------------------------------------------
+Retargeting was performed separately for each character.
+
+Reason:
+- Direct reuse of a single retarget resulted in inconsistent motion
+
+Adjustments during retargeting:
+- Retarget root set to pelvis
+- IK goals removed
+- Pose alignment corrected
+- Pelvis height offset applied
+
+------------------------------------------------------------
+5. MOTION EDITING (SEQUENCER)
+------------------------------------------------------------
+Retargeted animations were refined using Control Rig.
+
+Adjustments:
+- Foot placement correction
+- Rotation fixes
+- Posture adjustments
+- Removal of jitter
+- Step alignment corrections
+
+These edits improved motion quality and readability.
+
+------------------------------------------------------------
+6. CHARACTER-SPECIFIC ADAPTATION
+------------------------------------------------------------
+Motion was adapted for each character:
+
+Methods:
+- Playrate adjustments
+- Minor posture modifications
+- Root/height corrections
+
+Effect:
+- Larger characters appear heavier
+- Smaller characters appear more energetic
+- Motion better reflects character differences
+
+------------------------------------------------------------
+7. OBSERVATIONS
+------------------------------------------------------------
+Direct retargeting produced issues:
+- Foot sliding
+- Ground penetration
+- Pose mismatch
+- Root misalignment
+
+These issues varied depending on character proportions.
+
+------------------------------------------------------------
+8. IMPROVEMENTS
+------------------------------------------------------------
+Manual editing improved:
+- Ground contact
+- Motion stability
+- Overall believability
+
+Control Rig provided fine-grained control over animation.
+
+------------------------------------------------------------
+9. CRITICAL EVALUATION
+------------------------------------------------------------
+Strengths:
+- Same animation successfully applied to multiple characters
+- Per-character adaptation improved realism
+- Workflow demonstrates understanding of retargeting and motion editing
+
+Weaknesses:
+- Dependent on quality of mocap data
+- Requires significant manual cleanup
+- Retargeting tools not fully automatic
+
+Limitations:
+- Some residual foot sliding remains
+- Perfect grounding difficult to achieve without advanced systems
+
+------------------------------------------------------------
+10. CONCLUSION
+------------------------------------------------------------
+The demo demonstrates that while retargeting allows animation transfer across characters, additional motion editing is required to achieve believable results.
+
+Adapting motion to suit character proportions is essential rather than directly copying animation.
+
+------------------------------------------------------------
+END OF DOCUMENT
+------------------------------------------------------------

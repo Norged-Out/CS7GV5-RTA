@@ -1,0 +1,44 @@
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage[backend=biber]{biblatex}
+
+\addbibresource{references.bib}
+
+\graphicspath{{figures/}}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue
+}
+
+\title{CS7GV5 Real-Time Animation: Motion Editing}
+\author{Priyansh Nayak}
+\date{April 20, 2026}
+
+\begin{document}
+
+\maketitle
+
+\noindent\textbf{Demo link:} \url{https://youtu.be/IukL8HaHxQ8}
+
+\input{sections/overview}
+\input{sections/demo1}
+\input{sections/demo2}
+\input{sections/demo3}
+
+\newpage
+\section*{References}
+\printbibliography[heading=none]
+
+\end{document}

@@ -1,0 +1,169 @@
+DEMO 3 – FACIAL PERFORMANCE TRANSFER
+MetaHuman Animator + RAVDESS Dataset Implementation Report
+
+------------------------------------------------------------
+1. INTRODUCTION
+------------------------------------------------------------
+This project demonstrates facial animation generation using MetaHuman Animator (MHA) driven by emotional video clips from the RAVDESS dataset.
+
+The goal was to:
+- Use real facial video clips to drive animation
+- Apply animations onto MetaHumans
+- Compare results across different characters
+- Build a sequenced animation using multiple clips
+- Evaluate quality and limitations of the system
+
+The workflow intentionally avoids unnecessary setup steps and focuses on a direct, practical pipeline.
+
+------------------------------------------------------------
+2. DATASET AND CLIP SELECTION
+------------------------------------------------------------
+The RAVDESS dataset was used as the primary source of emotional facial data.
+
+Selected clips:
+- 01-01-03-01-01-01-13 (Happy)
+- 01-01-04-01-01-01-13 (Sad)
+- 01-01-05-01-01-01-13 (Angry)
+- 01-01-06-01-01-01-13 (Fearful)
+- 01-01-08-01-01-01-13 (Surprised)
+
+Characteristics:
+- Full audio-visual clips
+- Speech-based
+- Short duration (~3–4 seconds)
+- Same actor for consistency
+
+------------------------------------------------------------
+3. WORKFLOW OVERVIEW
+------------------------------------------------------------
+Pipeline used:
+
+1. Import clips using Live Link Capture Manager
+2. Automatically generate:
+   - Capture Data
+   - Media Source
+   - Audio tracks
+3. Open MetaHuman Performance asset
+4. Assign:
+   - Capture Data (video input)
+   - Target MetaHuman
+5. Process performance
+6. Export animation
+7. Add animation to Sequencer
+8. Combine multiple clips into sequence
+9. Render final output with audio
+
+This workflow avoids manual identity creation and uses built-in automation.
+
+------------------------------------------------------------
+4. PERFORMANCE GENERATION
+------------------------------------------------------------
+Each clip was processed individually.
+
+Steps:
+- Open MetaHuman Performance asset
+- Select corresponding Capture Data
+- Assign MetaHuman character
+- Process animation
+
+Output:
+- Facial animation directly applied to MetaHuman rig
+
+This approach simplifies setup and reduces calibration complexity.
+
+------------------------------------------------------------
+5. APPLICATION TO MULTIPLE METAHUMANS
+------------------------------------------------------------
+Each generated performance was applied to:
+- Primary MetaHuman (self-avatar)
+- Secondary MetaHuman (different appearance)
+
+Purpose:
+- Compare emotional transfer
+- Observe deformation differences
+- Evaluate robustness of animation system
+
+------------------------------------------------------------
+6. SEQUENCER IMPLEMENTATION
+------------------------------------------------------------
+All clips were combined using Sequencer.
+
+Process:
+- Add MetaHumans to Sequencer
+- Insert animation tracks
+- Add corresponding audio tracks
+- Arrange clips sequentially
+- Adjust timing for smooth playback
+
+A plane with Media Texture was used to display reference video when needed.
+
+------------------------------------------------------------
+7. AUDIO HANDLING
+------------------------------------------------------------
+Audio was handled separately:
+
+- Audio tracks added directly in Sequencer
+- Movie Render Queue used with:
+   - .wav audio export
+   - FFmpeg encoding (libx264 + aac)
+
+Important note:
+Audio must be explicitly enabled during render, otherwise it is not included.
+
+------------------------------------------------------------
+8. RENDERING PIPELINE
+------------------------------------------------------------
+Rendering performed using Movie Render Queue.
+
+Settings:
+- Image sequence output
+- Command Line Encoder (FFmpeg)
+- Video codec: libx264
+- Audio codec: aac
+
+Final output:
+- Combined MP4 video with audio
+
+------------------------------------------------------------
+9. RESULTS AND OBSERVATIONS
+------------------------------------------------------------
+Strengths:
+- Fast workflow using Live Link Capture Manager
+- No manual calibration required
+- Consistent performance extraction
+- Easy sequencing of multiple clips
+
+Weaknesses:
+- Short clip duration limits expressiveness
+- Some facial inaccuracies in extreme emotions
+- Audio requires manual handling
+- Lighting/angle differences affect quality
+
+------------------------------------------------------------
+10. CRITICAL EVALUATION
+------------------------------------------------------------
+Accuracy:
+- Neutral and mild emotions transfer well
+- Strong emotions show slight exaggeration or loss of nuance
+
+Consistency:
+- Same animation behaves differently across MetaHumans
+- Face shape affects perceived emotion
+
+Limitations:
+- Dependent on video quality
+- Limited control over solving process
+- No fine-grained editing of facial solve
+
+------------------------------------------------------------
+11. CONCLUSION
+------------------------------------------------------------
+The system successfully generates facial animation from real video data and applies it to multiple MetaHumans.
+
+The workflow used is efficient and avoids unnecessary complexity, making it suitable for rapid prototyping and experimentation.
+
+While not perfect, the results demonstrate strong potential for realistic facial animation with minimal setup.
+
+------------------------------------------------------------
+END OF REPORT
+------------------------------------------------------------

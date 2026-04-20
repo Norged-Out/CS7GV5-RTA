@@ -1,0 +1,139 @@
+DEMO 2 – PROGRESS UPDATE  
+Playable Character Integration and Motion Warping Implementation
+
+------------------------------------------------------------
+1. OVERVIEW
+------------------------------------------------------------
+The project evolved from an initial static Rock-Paper-Scissors (RPS) interaction system into a more advanced interactive setup involving a fully controllable player character and improved animation handling.
+
+The primary focus of this phase was:
+- Integrating a third-person playable MetaHuman
+- Expanding the animation system to support locomotion
+- Attempting and ultimately achieving motion warping for dynamic alignment
+
+------------------------------------------------------------
+2. PLAYABLE CHARACTER INTEGRATION
+------------------------------------------------------------
+A new Character-based blueprint (BP_Pri_Player) was implemented.
+
+Key features:
+- Third-person camera system (Spring Arm + Camera)
+- Standard movement input (forward, strafe, look)
+- CharacterMovement component for navigation
+- Interaction input for initiating gameplay
+
+This replaced the previous static setup and introduced a more complete gameplay loop.
+
+------------------------------------------------------------
+3. LOCOMOTION SYSTEM
+------------------------------------------------------------
+A locomotion system was implemented using an Animation Blueprint (ABP_Pri_Player).
+
+Core elements:
+- Speed variable derived from character velocity
+- 1D Blend Space controlling Idle → Walk → Fly (run replacement)
+
+Initial issues:
+- Character transitioned directly from idle to maximum speed
+- Walk animation was not visibly used
+
+Resolution:
+- Introduced input-based speed control (Shift key)
+- Adjusted movement speeds:
+  - Walk ≈ 150
+  - Fly ≈ 300
+- Updated Blend Space ranges accordingly
+
+This resulted in clearer and more controllable locomotion transitions.
+
+------------------------------------------------------------
+4. ANIMATION PIPELINE FIXES
+------------------------------------------------------------
+Several critical issues were identified and resolved:
+
+1. Montage Playback Failure  
+   Cause:
+   - Missing Slot node in AnimGraph  
+   Fix:
+   - Added Slot node between state machine and output pose  
+
+2. Root Motion Not Applied  
+   Cause:
+   - Montage played on child mesh (Body) instead of main Mesh  
+   Fix:
+   - Switched montage playback to inherited Mesh component  
+
+3. Root Motion Extraction Disabled  
+   Cause:
+   - AnimBP set to “No Root Motion Extraction”  
+   Fix:
+   - Changed to “Root Motion from Montages Only”  
+
+These fixes established a correct animation pipeline where montages could influence character movement.
+
+------------------------------------------------------------
+5. MOTION WARPING IMPLEMENTATION
+------------------------------------------------------------
+Motion warping was reintroduced after initially being abandoned due to instability.
+
+Final working setup:
+
+- Motion Warping Component added to character
+- Warp target updated via Blueprint at runtime
+- Target location derived from TargetPoint actor
+- Warp target set before montage playback
+- Motion Warping notify added to montage with matching target name
+
+Key debugging discoveries:
+
+- Root motion must be present and correctly applied to the main character mesh  
+- Playing montages on secondary meshes prevents root motion from affecting the actor  
+- Incorrect AnimBP configuration prevents root motion extraction  
+- MetaHuman mesh hierarchy can interfere with animation behavior  
+
+After resolving these issues, motion warping successfully aligned the character to the target position during montage playback.
+
+------------------------------------------------------------
+6. INTERACTION FLOW UPDATE
+------------------------------------------------------------
+The system now supports the following flow:
+
+Free Movement (Idle / Walk / Fly)  
+→ Player enters interaction range  
+→ Interaction triggered via input  
+→ Movement disabled  
+→ Player aligns to target (via motion warping or fallback positioning)  
+→ RPS sequence begins  
+→ Return to free movement after completion  
+
+This creates a complete gameplay loop instead of a static demonstration.
+
+------------------------------------------------------------
+7. CURRENT STATUS
+------------------------------------------------------------
+Completed:
+- Playable character with locomotion
+- Blend Space-driven movement system
+- Functional interaction trigger
+- Stable montage playback pipeline
+- Working motion warping alignment system
+
+In progress:
+- Updating RPS manager to integrate with new player-driven flow
+- Refining transition logic between locomotion and interaction states
+
+------------------------------------------------------------
+8. REFLECTION
+------------------------------------------------------------
+This phase required resolving multiple low-level animation issues, particularly involving root motion and MetaHuman setup.
+
+Key takeaways:
+- Unreal’s animation system is highly dependent on correct component hierarchy
+- Root motion requires proper configuration across both animation assets and blueprints
+- Motion warping is sensitive to setup order and animation data quality
+
+Despite initial failures, the system now supports dynamic alignment and a more complete interaction pipeline.
+
+------------------------------------------------------------
+END OF REPORT
+------------------------------------------------------------

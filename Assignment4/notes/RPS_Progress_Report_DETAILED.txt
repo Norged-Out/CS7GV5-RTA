@@ -1,0 +1,156 @@
+Rock Paper Scissors Motion Editing Project – Detailed Progress Report
+
+Project Overview:
+This project focuses on implementing an interactive Rock-Paper-Scissors (RPS) system within Unreal Engine using motion-captured animation data. The goal is to demonstrate motion editing techniques, animation system integration, and basic gameplay logic. The system consists of two characters: a player-controlled MetaHuman (BP_Pri) and a non-player character (BP_Girl). Both characters use retargeted motion capture animations representing different RPS outcomes.
+
+Concept and Design:
+The core idea is to simulate a Rock-Paper-Scissors game loop where both participants select a move (Rock, Paper, or Scissors), and the system determines the outcome (Win, Lose, Draw). The design emphasizes animation-driven feedback rather than UI-heavy interaction. The player is represented through a MetaHuman, while the opponent is an NPC to simplify interaction complexity.
+
+Animation Pipeline:
+The animation pipeline began with motion capture recordings. The recorded sequences were scripted such that the NPC always won across multiple takes, resulting in:
+- Three progressively expressive “win” animations
+- Three progressively comedic “loss” animations
+
+All animations were retargeted to the MetaHuman rigs used in Unreal Engine. This process required mapping skeletal structures and ensuring compatibility between source mocap data and target character rigs.
+
+Post-retargeting, animations were manually trimmed within Unreal’s Animation Sequence Editor. Due to limitations in frame-accurate trimming, cuts were approximate. Each animation was separated into functional clips:
+- Rock (Win / Lose)
+- Paper (Win / Lose)
+- Scissors (Win / Lose)
+- Draw interaction
+- Idle / fallback states
+
+Further refinement using Sequencer is planned if inconsistencies become noticeable.
+
+Animation Playback System:
+Each animation sequence was converted into an Animation Montage. This allows animations to be triggered dynamically via Blueprint rather than being locked into a state machine.
+
+Two Animation Blueprints were created:
+- ABP_Pri (for the player)
+- ABP_Girl (for the NPC)
+
+Each Animation Blueprint contains a Slot node (DefaultSlot) connected directly to the Output Pose. This setup enables montage playback. Without this, montages would not visibly play, even if triggered correctly in Blueprint logic.
+
+Core Gameplay System:
+A central Actor Blueprint, BP_RPS_Manager, was implemented to control gameplay flow. This manager acts as a “referee” between the two characters.
+
+Key components:
+- References to Player (BP_Pri) and NPC (BP_Girl)
+- Enum system:
+  E_Move: Rock, Paper, Scissors
+  E_Result: Win, Lose, Draw
+- Random NPC move generation using integer-to-enum mapping
+- ResolveRound function:
+  Determines outcome based on standard RPS rules
+- StartRound event:
+  Controls execution flow and prevents repeated input using a boolean flag (bRoundActive)
+
+Animation Routing:
+Each character implements a custom event:
+PlayRPSAnimation(Move, Result)
+
+This function determines which montage to play based on:
+- Selected move
+- Result outcome
+
+Structure:
+- If Draw → play Draw montage
+- Else:
+  - Rock + Win → Rock_Win montage
+  - Rock + Lose → Rock_Lose montage
+  - Paper + Win → Paper_Win montage
+  - Paper + Lose → Paper_Lose montage
+  - Scissors + Win → Scissors_Win montage
+  - Scissors + Lose → Scissors_Lose montage
+
+Montages are triggered using the Play Anim Montage node.
+
+Input and Testing:
+Testing is currently performed using keyboard input:
+- Key 1 → Rock
+- Key 2 → Paper
+- Key 3 → Scissors
+
+Extensive debug logging was used to verify:
+- Input triggering
+- Execution of StartRound
+- Correct assignment of PlayerMove and NPCMove
+- Correct resolution of PlayerResult and NPCResult
+- Execution of PlayRPSAnimation on both characters
+- Correct montage selection
+
+Issues Encountered and Resolutions:
+1. Montages not playing:
+   Cause: Missing Animation Blueprint / Slot node
+   Fix: Created AnimBP and added DefaultSlot
+
+2. Characters not responding:
+   Cause: PlayerRef and NPCRef not assigned
+   Fix: Enabled Instance Editable and assigned in level
+
+3. Enum debug output showing incorrect values:
+   Cause: Improper conversion to string
+   Fix: Used Enum → ToString or manual logging
+
+4. Only one character animating:
+   Cause: Missing binding/event call on NPC
+   Fix: Implemented PlayRPSAnimation in BP_Girl
+
+5. Inconsistent animation playback:
+   Cause: Overlapping or interrupted montages
+   Fix: Investigated timing and binding issues
+
+Current System State:
+The core gameplay loop is functional:
+- Player input triggers a round
+- NPC generates a random move
+- Results are calculated
+- Both characters play appropriate animations
+- System resets after a delay
+
+Remaining Limitations:
+- No scoring system implemented
+- No win condition (e.g., first to 3)
+- Reset system uses fixed delay rather than animation-driven timing
+- No UI (keyboard input only)
+- Animations may lack polish (alignment, blending, trimming)
+- No advanced animation techniques implemented yet
+
+Planned Improvements:
+1. Score System:
+   - Add PlayerScore and NPCScore variables
+   - Increment based on round results
+
+2. Win Condition:
+   - First-to-3 system
+   - Disable input after game ends
+
+3. End Sequence:
+   - Play winner celebration animation
+   - Optional loser reaction
+
+4. Animation Polish:
+   - Improve transitions (blend in/out)
+   - Refine trimming using Sequencer
+   - Fix alignment issues between characters
+
+5. Technical Animation Features:
+   - Motion Warping:
+     Align characters dynamically before animation playback
+   - Blend Spaces:
+     Create smooth transitions between idle and ready states
+   - Keyframe Adjustments:
+     Fix minor pose issues and improve clarity
+
+6. UI Integration (Optional):
+   - Replace keyboard input with on-screen buttons
+
+Conclusion:
+The project has successfully implemented the core functionality required for an interactive animation-driven system. The most technically challenging aspects—animation retargeting, montage setup, and Blueprint integration—have been completed.
+
+Remaining work focuses on:
+- Feature completion (score and win condition)
+- Visual polish and animation quality
+- Integration of advanced animation tools
+
+Overall, the project is in a stable and functional state, with a clear path toward completion.

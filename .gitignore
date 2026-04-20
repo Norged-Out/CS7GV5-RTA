@@ -62,6 +62,11 @@ Plugins/*/Intermediate/
 *.synctex.gz
 *.toc
 
+# ---- Explicit oversized Unreal assets kept out of git ----
+Assignment4/ue_project/Content/MyStuff/Others/Girl.uasset
+Assignment4/ue_project/Content/MyStuff/Others/Unc.uasset
+Assignment4/ue_project/Content/MyStuff/Pri/MaybePri.uasset
+
 # ---- OS junk ----
 .DS_Store
 Thumbs.db

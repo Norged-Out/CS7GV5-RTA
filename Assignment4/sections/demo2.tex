@@ -1,12 +1,10 @@
 \section{Two-Character Interaction}
 
-The second demo was built around a Rock-Paper-Scissors interaction between a player-controlled MetaHuman and an NPC. I chose that structure because it is simple to understand but still demanding enough from an animation point of view: the player has to choose an action, the system has to resolve the result, and both characters then have to respond in a way that feels synchronized, readable, and spatially correct. Most of the clips in the set came from my own mocap recording, which made them particularly well suited to translation onto my MetaHuman avatar and gave the player side of the system a more natural baseline before cleanup. The structure also worked well because the UI could drive rock, paper, and scissors choices directly into different staged outcomes.
+The second demo was built around a Rock-Paper-Scissors interaction between a player-controlled MetaHuman and an NPC. The structure was simple: the player has to choose an action from the UI, the system has to resolve the result, and both characters then have to respond in a way that feels synchronized, readable, and spatially correct. Most of the clips in the set came from my own mocap recording, which made them particularly well suited to translation onto my MetaHuman avatar and gave the player side of the system a more natural baseline before cleanup. 
 
 \subsection{System Structure, Logic, and Clip Setup}
 
 The whole interaction is coordinated through a central manager blueprint. That manager receives the player's move, generates the NPC move, resolves the outcome, informs the two MetaHumans which move and result to play, updates score values, and prevents rounds from overlapping. I kept the gameplay logic there because it made the rest of the system easier to reason about: the player and NPC only needed to worry about animation playback and local state, while the manager handled the round itself.
-
-The project is split across three main blueprints. The player blueprint handles movement, input, animation playback, and the shift from normal locomotion into game mode when the interaction begins. The NPC blueprint handles its own animation response and facing behaviour. The manager blueprint handles the UI, move resolution, scores, and overall round flow.
 
 \begin{figure}[H]
     \centering
@@ -14,7 +12,9 @@ The project is split across three main blueprints. The player blueprint handles 
     \caption{RPS manager Blueprint and overall system flow.}
 \end{figure}
 
-Pressing the interaction key brings up the UI, the player picks rock, paper, or scissors, the NPC move is generated randomly, and the manager resolves the result before sending the chosen move and outcome to both characters. The UI also updates the score display and shows a result text after the game concludes, so it became part of the interaction loop rather than just a button layer.
+The project is split across three main blueprints: The player blueprint handles movement, input, animation playback, and the shift from normal locomotion into game mode when the interaction begins. The NPC blueprint handles its own animation response and facing behaviour. The manager handles the UI, move resolution, scores, and overall round flow.
+
+Pressing the interaction key ('F') brings up the UI, the player picks rock, paper, or scissors, the NPC move is generated randomly, and the manager resolves the result before sending the chosen move and outcome to both characters. The UI also updates the score display and shows a result text after the game concludes.
 
 \begin{figure}[H]
     \centering
@@ -32,9 +32,9 @@ Pressing the interaction key brings up the UI, the player picks rock, paper, or 
     \caption{Function-level Blueprint logic.}
 \end{figure}
 
-From the animation side, the system uses raw animation sequences, montages \cite{epic_animation_montage}, and blend spaces \cite{epic_blend_spaces}. The sequences provide the source clips, the montages turn them into controllable gameplay actions, and the blend spaces handle the more continuous transition between locomotion or idle and the ready state. The interaction itself is built as a staged sequence rather than one long clip, mainly because the source mocap was not clean enough to behave like one seamless performance.
+From the animation side, the system uses animation sequences through montages \cite{epic_animation_montage} and blend spaces \cite{epic_blend_spaces}. The sequences provide the source clips, the montages turn them into controllable gameplay actions, and the blend spaces handle the more continuous transition between locomotion or idle and the ready state. The interaction itself is built as a staged sequence rather than one long clip, mainly because the source mocap was not clean enough to behave like one seamless performance.
 
-The clip set used for the interaction was:
+The clip set used for the gameplay interaction was:
 
 \begin{itemize}[leftmargin=*]
     \item 1 clip to enter the ready state,
@@ -45,7 +45,7 @@ The clip set used for the interaction was:
     \item and 1 extra game-over animation per character, with a different dance for each.
 \end{itemize}
 
-This staged structure mattered because it let me build the interaction around what the mocap could support instead of forcing everything into one long animation that would have been much harder to clean and synchronize. Most of these clips came from my own performance, which helped the player's retargeted animation sit more naturally on my avatar. The main exceptions were the win result clips for rock, paper, and scissors, together with the NPC's final win clip, which came from a different person and were immediately more sensitive to pose mismatch and cleanup.
+This staged structure let me build the interaction around what the mocap could support instead of forcing everything into one long animation that would have been much harder to clean and synchronize. Most of these clips came from my own performance, which helped the player's retargeted animation sit more naturally on my avatar. The main exceptions were the round win result clips for RPS and the NPC's final win clip, which came from the other person and were immediately more sensitive to pose mismatch and cleanup.
 
 \begin{figure}[H]
     \centering
@@ -57,15 +57,13 @@ This staged structure mattered because it let me build the interaction around wh
 
 The player and NPC did not use the same animation setup, because they had different needs. The player needed normal locomotion as well as interaction readiness, while the NPC mainly needed to stay idle, turn toward the player, and transition into the ready state cleanly.
 
-The player animation blueprint was built around a 2D blend space inside an Animation Blueprint setup \cite{epic_animation_blueprints,epic_blend_spaces}. Along the X axis it used three locomotion clips: idle, walk, and a faster clip labelled as ``fly'', which effectively takes the role of a run but with a more comedic feel. Along the vertical state axis, the ready clip is placed at state \(=1\), which allows the character to move from normal locomotion into readiness before the RPS montages begin. This was much cleaner than snapping directly from movement into a throw animation.
-
-The NPC setup was simpler and used a 1D blend space that moved only between idle and ready. That was enough for this demo because the NPC did not need the same locomotion complexity. It also maintained facing through a simple LookAt-style rotation update toward the player, which kept the interaction from feeling disconnected. The NPC also received its own separately retargeted clip set, which helped avoid clipping issues that showed up more readily when trying to force the same retargeted material across both characters.
-
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.74\linewidth]{Blend2.png}
     \caption{Player's 2D blend space combining locomotion and state.}
 \end{figure}
+
+The player animation blueprint was built around a 2D blend space inside an Animation Blueprint setup \cite{epic_animation_blueprints,epic_blend_spaces}. Along the X axis it used three locomotion clips: idle, walk, and a faster clip labelled as ``fly'', which effectively takes the role of a run but with a more comedic feel. These were controlled using the player's movement velocity ('Left Shift' was used to adjust speed for running state). Along the vertical state axis, the ready clip is placed at state \(=1\), which allows the character to move from normal locomotion into readiness before the RPS montages begin. This was much cleaner than snapping directly from movement into a throw animation.
 
 \begin{figure}[H]
     \centering
@@ -89,13 +87,15 @@ The NPC setup was simpler and used a 1D blend space that moved only between idle
     \caption{Player's animation blueprint handling state and gameplay playback.}
 \end{figure}
 
+The NPC setup was simpler and used a 1D blend space that moved only between idle and ready, because they did not need the same locomotion complexity. It also maintained facing through a simple LookAt-style LERP rotation update toward the player, which kept the interaction from feeling disconnected. The NPC also received its own separately retargeted clip set, which helped avoid clipping issues that showed up more readily when trying to force the same retargeted material across both characters.
+
 Smoothing was handled mainly through two decisions: the use of the ready-state blend-space transition before gameplay actions, and montage chaining through \texttt{On Blend Out} rather than \texttt{On Completed}. Using \texttt{On Completed} introduced a visible pause between stages, while chaining through blend-out gave the sequence a much more continuous feel. After testing different settings, I settled on a blend-in and blend-out time of roughly 0.5 seconds with a Hermite Cubic InOut curve, because that gave the smoothest result overall. It still did not remove every artifact, since some clips carried noticeable differences in pose, bone rotation, and body orientation from one stage to the next, but it made the interaction read much better than the harsher default transitions.
 
 \subsection{Keyframe Editing, Warping, and Synchronization}
 
-Even after the system structure was working, the source mocap still had obvious weaknesses. Some transitions contained weak poses, some timings were uneven, and some frames simply made the animation look worse when left untouched. Because of that, I used Sequencer to trim unwanted lead-in and tail frames, fix rotations where the poses broke down, and reduce visible jitter in the upper body and hands. This was one of the most useful motion-editing steps in the demo, because blending alone could only hide so much.
+Even after the system structure was working, the source mocap still had obvious weaknesses. Some transitions contained weak poses, some timings were uneven, and some frames simply made the animation look worse when left untouched. Because of that, I used Sequencer to trim unwanted lead-in and tail frames, fix rotations where the poses broke down, and reduce visible jitter in the upper body and hands. This was one of the most useful motion-editing steps in the demo, because blending alone could only hide so much, especially movement.
 
-Mirroring was used only for the PaperWin animation \cite{epic_mirror_animation}. I did not apply it across the rest of the set because the mirrored results were not consistently convincing, but in that one case it helped reduce duplication without producing obviously wrong motion.
+Mirroring was used only for the PaperWin animation to counteract the obviously wrong motion \cite{epic_mirror_animation}. I did not apply it across the rest of the set because only this particular instance involved changing the throwing hand and caused a clear snap between transitions.
 
 The last major problem was spatial alignment. Even when both characters were playing the correct animations at the correct time, the interaction still failed if their positions relative to each other were wrong, so motion warping was used to align the player dynamically to the interaction target before or during montage playback \cite{epic_motion_warping}. To get it working properly, the montage had to play on the correct mesh, root motion extraction had to be configured correctly, and the warp target had to be updated at the right time.
 
@@ -119,6 +119,6 @@ Synchronization across both characters was still handled centrally by the manage
 
 \subsection{Critical Evaluation}
 
-This demo works best when looked at as one animation system rather than a collection of separate tricks. Concatenation gave the interaction structure, smoothing stopped the stages from feeling too obviously stitched together, the blend-space setup gave the player a cleaner path into readiness, keyframe cleanup repaired weak source motion that blending could not hide, and motion warping fixed the alignment problem that remained even after the timing was working. If the montage staging is removed, the interaction loses structure. If smoothing is weak, the sequence feels broken apart. If the blend space is removed, the player snaps too harshly into the action. If keyframe cleanup is skipped, the source mocap issues become much more obvious. If warping is missing, the two characters never quite feel like they are sharing the same space properly.
+This demo works best when looked at as one animation system rather than a collection of separate tricks. Concatenation gave the interaction structure, smoothing stopped the stages from feeling too obviously stitched together, the blend-space setup gave the player a cleaner path into readiness, keyframe cleanup repaired weak source motion that blending could not hide, and motion warping fixed the alignment problem that remained even after the timing was working. If the montage staging is removed, the interaction loses structure. If smoothing is weak, the sequence feels broken apart. If the blend space is removed, the player snaps too harshly into the action. If keyframe cleanup is skipped, the source mocap issues become much more obvious. If warping is missing, the two characters never quite feel like they are sharing the same space properly due to poor orientation.
 
-The main weakness still comes from the mocap source itself. Some pose mismatches remain visible, and no amount of blending can completely hide every inconsistency when the original clips are imperfect. There is also an unavoidable tradeoff between neatness and responsiveness, because longer blends make the motion read better but can also make the interaction feel slightly softer than intended.
+The main weakness still comes from the mocap source itself. Some pose mismatches remain visible, and no amount of blending can completely hide every inconsistency when the original clips are imperfect. There is also an unavoidable tradeoff between neatness and responsiveness, because longer blends make the motion read better but can also make the interaction feel slightly softer than intended. There is also a clear flaw in the design of motion warping working weaker, or at times not at all, in the NPC as an actor blueprint than in the case of a playable character, which was another motivation for my choice of designing one rather than simply having two actors just present in the scene, while also giving me a chance to present a more interesting animation blueprint and a 2D blend space.

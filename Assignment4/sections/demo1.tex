@@ -1,6 +1,6 @@
 \section{Retargeting and Character Diversity}
 
-For the first demo, I used a single walking motion capture clip and transferred it onto three different MetaHumans with noticeably different proportions. The three characters were my own avatar, built as a roughly six-foot, slightly chubby male and presented using Epic Games' MetaHuman Techwear Outfit \cite{fab_avatar_outfit}, together with two alternative MetaHumans: a short female character using the Casual Hoodie \& Jeans outfit by polycornStudio \cite{fab_female_outfit}, and an older male character using the Poor Man Outfit by NOETA Marketstore \cite{fab_oldman_outfit}. Since the source clip came from my own mocap recording, it was naturally best suited to my own avatar, which made it a useful baseline for seeing what changed when the same motion was applied to characters with very different body types. That also pushed the demo away from being just a transfer test and toward what had to happen afterwards, because what looks acceptable on one character can start to feel too light, too stretched, or badly grounded on another.
+For the first demo, I used a single walking motion capture clip and transferred it onto three different MetaHumans with noticeably different proportions. The three characters were my own avatar, built as a roughly six-foot, slightly chubby male and presented using Epic Games' MetaHuman Techwear Outfit \cite{fab_avatar_outfit}, together with two alternative MetaHumans: a short female character using the Casual Hoodie \& Jeans outfit by polycornStudio \cite{fab_female_outfit}, and an older male character using the Poor Man Outfit by NOETA Marketstore \cite{fab_oldman_outfit}. Since the source clip came from my own mocap recording, it was naturally best suited to my own avatar, which made it a useful baseline for seeing what changed when the same motion was applied to characters with very different body types. That also pushed this away from being just a transfer test and toward what had to happen afterwards, because what looks acceptable on one character started to feel too light, too stretched, or badly grounded on another.
 
 \subsection{Retargeting Workflow}
 
@@ -14,11 +14,7 @@ The initial workflow followed Unreal Engine's standard retargeting pipeline \cit
     \item and instability introduced by IK goals and solver settings that did not suit the source rig.
 \end{itemize}
 
-These issues made it clear that the default setup was not robust enough for this dataset, so a debugging pass was needed before the retargeting results became usable.
-
-The retargeting setup was simplified in order to stabilize the transfer. IK goals that referenced incompatible bones were removed, the Full Body IK solver was disabled in the retargeting configuration, and the retarget root was changed to the pelvis or hips. I also found that Unreal's post-process animation logic could interfere with testing, so that system had to be disabled temporarily while verifying the raw retarget result.
-
-Once those issues were addressed, the retargeted motion became stable enough to inspect properly. However, a second problem then became more obvious: even when the motion transferred correctly in a technical sense, the same retargeted result did not look equally believable on all three characters.
+These issues made it clear that the default setup was not robust enough for this dataset, so a debugging pass was needed before the retargeting results became usable. IK goals that referenced incompatible bones were removed, the Full Body IK solver was disabled in the retargeting configuration, and the retarget root was changed to the pelvis or hips. I also found that Unreal's post-process animation logic could interfere with testing, so that system had to be disabled temporarily while verifying the raw retarget result.
 
 \begin{figure}[H]
     \centering
@@ -34,9 +30,7 @@ Because of this, I changed the workflow and created a separate retargeting pass 
 
 \subsection{Sequencer and Control Rig Editing}
 
-The retargeted clips were then taken into Sequencer and baked to Control Rig for cleanup using the MetaHuman Control Rig workflow \cite{epic_metahuman_control_rig}. This was one of the most important steps in the demo, because it turned the retargeted motion from a rough transfer into something I could actually shape.
-
-The main corrections during this stage were foot placement adjustments to reduce ground penetration and sliding, fixes to the hips, spine, and shoulder rotations, visible jitter cleanup, posture refinement for each character, and smoothing of awkward moments in the stride cycle. These edits improved grounding and made the differences between the characters feel more intentional rather than accidental, so instead of all three looking like copies of the same clip they began to read as separate performances shaped by the same underlying motion.
+The retargeted clips were then taken into Sequencer and baked to Control Rig for cleanup using the MetaHuman Control Rig workflow \cite{epic_metahuman_control_rig}. The main corrections during this stage were foot placement adjustments to reduce ground penetration and sliding, fixes to the hips, spine, and shoulder rotations, visible jitter cleanup, posture refinement for each character, and smoothing of awkward moments in the stride cycle. These edits improved grounding and made the differences between the characters more apparent instead of all three looking like simple copies of the same clip.
 
 \begin{figure}[H]
     \centering
@@ -54,11 +48,11 @@ The main corrections during this stage were foot placement adjustments to reduce
     \caption{Sequencer keyframe adjustments for posture, stride distance, and speed.}
 \end{figure}
 
-To strengthen the distinction between characters, I also adjusted play rate and stance slightly per character. My own avatar stayed closest to the original clip, the shorter female character was shaped to feel lighter and more energetic even though the shorter step length made her read marginally slower overall, and the older male character was pushed toward a slower and stiffer result. These were relatively small changes, but they mattered because they showed that motion editing here was not only about fixing visible errors, but also about adapting the same source motion to suit different performers.
+To strengthen the distinction between characters, I also adjusted play rate and stance slightly per character. My own avatar stayed closest to the original clip, the shorter female character was shaped to feel lighter and more energetic even though the shorter step length made her read marginally slower overall, and the older male character was pushed toward a slower and stiffer result. 
 
 \subsection{Critical Evaluation}
 
-The most useful thing this demo showed is that retargeting is only the start of cross-character animation reuse. The transfer itself worked, but the raw result still was not strong enough to present as finished motion, and the biggest lesson here was how strongly body proportions affect perception even when the underlying source clip stays exactly the same. What works well is that the demo does not pretend retargeting is automatic magic. Once proportions start changing, the motion also needs to be adapted, and the combination of per-character retargeting and Control Rig cleanup made a much bigger difference than the transfer alone.
+The most useful thing this demo showed is that retargeting is not always simple. The transfer itself worked, but the raw result still was not strong enough to present as finished motion, and the biggest lesson here was how strongly body proportions affect perception even when the underlying source clip stays exactly the same. It also shows that once proportions start changing, the motion also needs to be adapted, and the combination of per-character retargeting and Control Rig cleanup made a much bigger difference than the transfer alone.
 
 The weakness is that the workflow is still very manual, because different characters produce different grounding and pose issues and the amount of cleanup scales up quickly once more than one body type is involved. Even after cleanup, there can still be small problems like slight sliding or imperfect foot contact.
 
